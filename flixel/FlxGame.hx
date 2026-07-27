@@ -42,6 +42,22 @@ import flixel.system.replay.FlxReplay;
 @:allow(flixel.FlxG)
 class FlxGame extends Sprite
 {
+	#if sys
+	static var __novaPerfTrace:Bool = Sys.getEnv("NOVAGC_PERF_TRACE") != null;
+	static var __novaUpdateWindowStart:Float = 0.0;
+	static var __novaUpdateCount:Int = 0;
+	static var __novaUpdateTotal:Float = 0.0;
+	static var __novaUpdateState:Float = 0.0;
+	static var __novaUpdateMax:Float = 0.0;
+	static var __novaDrawWindowStart:Float = 0.0;
+	static var __novaDrawCount:Int = 0;
+	static var __novaDrawTotal:Float = 0.0;
+	static var __novaDrawPrep:Float = 0.0;
+	static var __novaDrawState:Float = 0.0;
+	static var __novaDrawCameras:Float = 0.0;
+	static var __novaDrawPost:Float = 0.0;
+	static var __novaDrawMax:Float = 0.0;
+	#end
 	/**
 	 * Framerate to use on focus lost. Default is `10`.
 	 */
@@ -447,7 +463,21 @@ class FlxGame extends Sprite
 		debugger.stats.onFocus();
 		#end
 
+		#if !flash
+		if (stage.window != null)
+		{
+			// ENTER_UPDATE and ENTER_FRAME are independent in this fork. Restoring
+			// only Stage.frameRate overwrote the update clock with the render rate
+			// every time the window regained focus.
+			stage.window.frameRate = FlxG.fixedTimestep ? Std.int(1000 / FlxG.fixedStepMS) : FlxG.updateFramerate;
+			stage.window.drawFrameRate = FlxG.drawFramerate;
+			stage.window.lockRender = true;
+		}
+		else
+			stage.frameRate = FlxG.drawFramerate;
+		#else
 		stage.frameRate = FlxG.drawFramerate;
+		#end
 		#if FLX_SOUND_SYSTEM
 		FlxG.sound.onFocus();
 		#end
@@ -541,7 +571,8 @@ class FlxGame extends Sprite
 		FlxBasic.visibleCount = 0;
 		#end
 
-		// Render only
+		// Rebuild every frame so the draw clock represents actual scene traversal
+		// and GPU submission, not repeated presentation of a retained 60 Hz image.
 		draw();
 
 		#if FLX_DEBUG
@@ -752,6 +783,11 @@ class FlxGame extends Sprite
 	{
 		if (!_state.active || !_state.exists)
 			return;
+		#if sys
+		var __novaStarted = __novaPerfTrace ? haxe.Timer.stamp() : 0.0;
+		var __novaBeforeState = 0.0;
+		var __novaAfterState = 0.0;
+		#end
 
 		if (_nextState != null)
 			switchState();
@@ -782,7 +818,13 @@ class FlxGame extends Sprite
 
 		FlxG.plugins.update(FlxG.elapsed);
 
+		#if sys
+		if (__novaPerfTrace) __novaBeforeState = haxe.Timer.stamp();
+		#end
 		_state.tryUpdate(FlxG.elapsed);
+		#if sys
+		if (__novaPerfTrace) __novaAfterState = haxe.Timer.stamp();
+		#end
 
 		FlxG.cameras.update(FlxG.elapsed);
 		FlxG.signals.postUpdate.dispatch();
@@ -802,6 +844,30 @@ class FlxGame extends Sprite
 		#end
 
 		filters = filtersEnabled ? _filters : null;
+		#if sys
+		if (__novaPerfTrace)
+		{
+			var __novaEnded = haxe.Timer.stamp();
+			var __novaTotal = __novaEnded - __novaStarted;
+			var __novaState = __novaAfterState - __novaBeforeState;
+			if (__novaTotal >= 0.02)
+				Sys.println('perf:FlxGame.update.slow total_ms=${Math.round(__novaTotal * 1000)} state_ms=${Math.round(__novaState * 1000)} state=${Type.getClassName(Type.getClass(_state))}');
+
+			if (__novaUpdateWindowStart == 0.0) __novaUpdateWindowStart = __novaStarted;
+			__novaUpdateCount++;
+			__novaUpdateTotal += __novaTotal;
+			__novaUpdateState += __novaState;
+			if (__novaTotal > __novaUpdateMax) __novaUpdateMax = __novaTotal;
+			if (__novaEnded - __novaUpdateWindowStart >= 1.0)
+			{
+				var __novaScale = 1000000.0 / __novaUpdateCount;
+				Sys.println('perf:FlxGame.update.avg frames=$__novaUpdateCount total_us=${Math.round(__novaUpdateTotal * __novaScale)} state_us=${Math.round(__novaUpdateState * __novaScale)} other_us=${Math.round((__novaUpdateTotal - __novaUpdateState) * __novaScale)} max_us=${Math.round(__novaUpdateMax * 1000000)} state=${Type.getClassName(Type.getClass(_state))}');
+				__novaUpdateWindowStart = __novaEnded;
+				__novaUpdateCount = 0;
+				__novaUpdateTotal = __novaUpdateState = __novaUpdateMax = 0.0;
+			}
+		}
+		#end
 	}
 
 	function updateElapsed():Void
@@ -908,6 +974,12 @@ class FlxGame extends Sprite
 	{
 		if (!_state.visible || !_state.exists)
 			return;
+		#if sys
+		var __novaStarted = __novaPerfTrace ? haxe.Timer.stamp() : 0.0;
+		var __novaBeforeState = 0.0;
+		var __novaAfterState = 0.0;
+		var __novaAfterCameras = 0.0;
+		#end
 
 		#if FLX_DEBUG
 		if (FlxG.debugger.visible)
@@ -927,6 +999,9 @@ class FlxGame extends Sprite
 		#end
 
 		FlxG.cameras.lock();
+		#if sys
+		if (__novaPerfTrace) __novaBeforeState = haxe.Timer.stamp();
+		#end
 
 		if (FlxG.plugins.drawOnTop)
 		{
@@ -938,10 +1013,16 @@ class FlxGame extends Sprite
 			FlxG.plugins.draw();
 			_state.draw();
 		}
+		#if sys
+		if (__novaPerfTrace) __novaAfterState = haxe.Timer.stamp();
+		#end
 
 		if (FlxG.renderTile)
 		{
 			FlxG.cameras.render();
+			#if sys
+			if (__novaPerfTrace) __novaAfterCameras = haxe.Timer.stamp();
+			#end
 
 			#if FLX_DEBUG
 			debugger.stats.drawCalls(FlxDrawBaseItem.drawCalls);
@@ -951,6 +1032,37 @@ class FlxGame extends Sprite
 		FlxG.cameras.unlock();
 
 		FlxG.signals.postDraw.dispatch();
+		#if sys
+		if (__novaPerfTrace)
+		{
+			var __novaEnded = haxe.Timer.stamp();
+			var __novaTotal = __novaEnded - __novaStarted;
+			var __novaPrep = __novaBeforeState - __novaStarted;
+			var __novaState = __novaAfterState - __novaBeforeState;
+			var __novaCameras = __novaAfterCameras > 0.0 ? __novaAfterCameras - __novaAfterState : 0.0;
+			var __novaPostStart = __novaAfterCameras > 0.0 ? __novaAfterCameras : __novaAfterState;
+			var __novaPost = __novaEnded - __novaPostStart;
+			if (__novaTotal >= 0.02)
+				Sys.println('perf:FlxGame.draw.slow total_ms=${Math.round(__novaTotal * 1000)} state_ms=${Math.round(__novaState * 1000)} cameras_ms=${Math.round(__novaCameras * 1000)} state=${Type.getClassName(Type.getClass(_state))}');
+
+			if (__novaDrawWindowStart == 0.0) __novaDrawWindowStart = __novaStarted;
+			__novaDrawCount++;
+			__novaDrawTotal += __novaTotal;
+			__novaDrawPrep += __novaPrep;
+			__novaDrawState += __novaState;
+			__novaDrawCameras += __novaCameras;
+			__novaDrawPost += __novaPost;
+			if (__novaTotal > __novaDrawMax) __novaDrawMax = __novaTotal;
+			if (__novaEnded - __novaDrawWindowStart >= 1.0)
+			{
+				var __novaScale = 1000000.0 / __novaDrawCount;
+				Sys.println('perf:FlxGame.draw.avg frames=$__novaDrawCount total_us=${Math.round(__novaDrawTotal * __novaScale)} prep_us=${Math.round(__novaDrawPrep * __novaScale)} state_us=${Math.round(__novaDrawState * __novaScale)} cameras_us=${Math.round(__novaDrawCameras * __novaScale)} post_us=${Math.round(__novaDrawPost * __novaScale)} max_us=${Math.round(__novaDrawMax * 1000000)} state=${Type.getClassName(Type.getClass(_state))}');
+				__novaDrawWindowStart = __novaEnded;
+				__novaDrawCount = 0;
+				__novaDrawTotal = __novaDrawPrep = __novaDrawState = __novaDrawCameras = __novaDrawPost = __novaDrawMax = 0.0;
+			}
+		}
+		#end
 
 		#if FLX_DEBUG
 		debugger.stats.flixelDraw(getTicks() - ticks);

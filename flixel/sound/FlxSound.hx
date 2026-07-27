@@ -218,6 +218,8 @@ class FlxSound extends FlxBasic
 	#if hxvlc
 	public var _vlcPlayer:AudioGroup;
 	private var _onVLC:Bool = false;
+	private var _vlcClockPollElapsed:Float = 0;
+	private var _lastVlcTransformVolume:Float = Math.NaN;
 	#end
 
 	/**
@@ -237,6 +239,12 @@ class FlxSound extends FlxBasic
 		try {
 			Handle.init();
 			_vlcPlayer = new AudioGroup();
+			_vlcClockPollElapsed = 0;
+			// A freshly-created AudioGroup must receive the current FlxSound
+			// transform even when the previous player happened to use the same
+			// volume. Otherwise the cached transform can leave the new OpenAL
+			// source at a stale gain.
+			_lastVlcTransformVolume = Math.NaN;
 			
 			_vlcPlayer.onEndReached.add(function() {
 				FlxG.signals.postUpdate.addOnce(function() {
@@ -310,6 +318,19 @@ class FlxSound extends FlxBasic
 			_sound.removeEventListener(Event.ID3, gotID3);
 			_sound = null;
 		}
+
+		#if hxvlc
+		_onVLC = false;
+		if (_vlcPlayer != null)
+		{
+			try
+			{
+				_vlcPlayer.dispose();
+			}
+			catch (e:Dynamic) {}
+			_vlcPlayer = null;
+		}
+		#end
 		
 		onComplete = null;
 		
@@ -324,12 +345,19 @@ class FlxSound extends FlxBasic
 		#if hxvlc
 		if (_onVLC)
 		{
-			if (_vlcPlayer != null && _vlcPlayer.isPlaying)
-			{
-				if (_channel == null) 
-					_channel = @:privateAccess new SoundChannel(null, null, null);
+			// Playback lives in VLC/OpenAL. Advance a smooth engine-side clock and
+			// reconcile it periodically instead of crossing into LibVLC twice on
+			// every native (up to 2 kHz) update.
+			if (_channel != null && !_paused)
+				_time += elapsed * 1000;
 
-				_time = haxe.Int64.toInt(_vlcPlayer.time);
+			_vlcClockPollElapsed += elapsed;
+			if (_vlcPlayer != null && _vlcClockPollElapsed >= 0.05)
+			{
+				_vlcClockPollElapsed = 0;
+				final actualTime:Int = haxe.Int64.toInt(_vlcPlayer.time);
+				if (actualTime >= 0 && (Math.abs(actualTime - _time) > 8 || _channel == null))
+					_time = actualTime;
 			}
 
 			updateTransform();
@@ -452,12 +480,15 @@ class FlxSound extends FlxBasic
 	public function loadStream(SoundURL:String, Looped:Bool = false, AutoDestroy:Bool = false, ?OnComplete:Void->Void, ?OnLoad:Void->Void):FlxSound
 	{
 		#if hxvlc
-		_onVLC = true;
-
 		cleanup(true);
+		// cleanup(true) calls reset()->destroy(), which deliberately clears
+		// _onVLC and disposes the previous AudioGroup. Set the backend flag
+		// after cleanup so play(), length and addTrack() use the new VLC stream.
+		_onVLC = true;
 		init(Looped, AutoDestroy, OnComplete);
 		
 		_initVlc();
+		updateTransform();
 		
 		if (_vlcPlayer != null && _vlcPlayer.addTrack(SoundURL, null, 1))
 		{
@@ -508,12 +539,12 @@ class FlxSound extends FlxBasic
 	public function loadStreamAsync(SoundURL:String, Looped:Bool = false, AutoDestroy:Bool = false, ?OnComplete:Void->Void, ?OnLoad:Void->Void):FlxSound
 	{
 		#if hxvlc
-		_onVLC = true;
-
 		cleanup(true);
+		_onVLC = true;
 		init(Looped, AutoDestroy, OnComplete);
 		
 		_initVlc();
+		updateTransform();
 		
 		if (_vlcPlayer != null && _vlcPlayer.addTrackAsync(SoundURL, null, 1))
 		{
@@ -823,7 +854,13 @@ class FlxSound extends FlxBasic
 		#if hxvlc
 		if (_vlcPlayer != null && _onVLC)
 		{
-			_vlcPlayer.volume = _transform.volume;
+			// Group volume performs one OpenAL call per VLC track. Do it only when
+			// the effective volume actually changes.
+			if (Math.isNaN(_lastVlcTransformVolume) || Math.abs(_lastVlcTransformVolume - _transform.volume) > 0.000001)
+			{
+				_vlcPlayer.volume = _transform.volume;
+				_lastVlcTransformVolume = _transform.volume;
+			}
 		}
 		#end
 	}
