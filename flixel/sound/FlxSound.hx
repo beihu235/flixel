@@ -1,4 +1,4 @@
-package flixel.sound;
+﻿package flixel.sound;
 
 import flixel.FlxBasic;
 import flixel.FlxG;
@@ -13,6 +13,12 @@ import openfl.media.Sound;
 import openfl.media.SoundChannel;
 import openfl.media.SoundTransform;
 import openfl.net.URLRequest;
+#if CODENAME_ENGINE_COMPAT
+import flixel.FlxObject;
+import flixel.util.FlxSignal;
+import lime.media.AudioBuffer;
+import lime.media.AudioSource;
+#end
 #if flash11
 import openfl.utils.ByteArray;
 #end
@@ -97,6 +103,14 @@ class FlxSound extends FlxBasic
 	 * Set volume to a value between 0 and 1 to change how this sound is.
 	 */
 	public var volume(get, set):Float;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Independent per-sound mute flag used by Codename's charter and scripts. */
+	public var muted(default, set):Bool = false;
+
+	/** Whether the pitch should follow `FlxG.timeScale`. Default is true. */
+	public var timeScaleBased:Bool = true;
+	#end
 	
 	#if FLX_PITCH
 	/**
@@ -110,6 +124,41 @@ class FlxSound extends FlxBasic
 	 * If set while paused, changes only come into effect after a `resume()` call.
 	 */
 	public var time(get, set):Float;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Playback offset used by Codename music metadata. */
+	public var offset:Float = 0;
+
+	/** Whether an OpenFL sound resource is currently attached. */
+	public var loaded(get, never):Bool;
+
+	/** The Lime audio buffer backing the OpenFL sound. */
+	public var buffer(get, never):AudioBuffer;
+
+	/** The sound's "target" for proximity and panning. */
+	public var target(get, set):Null<FlxObject>;
+
+	/** The maximum effective radius of this sound for proximity and panning. */
+	public var radius(get, set):Float;
+
+	/** Whether the proximity alters the pan or not. */
+	public var proximityPan(get, set):Bool;
+
+	/** Scroll factor used for proximity with cameras. */
+	public var scrollFactor(default, null):FlxPoint;
+
+	/** Number of audio channels in the loaded sound. */
+	public var channels(get, never):Int;
+
+	/** Whether the sound is stereo (more than 1 channel). */
+	public var stereo(get, never):Bool;
+
+	/** Whether the sound is a vorbis stream. */
+	public var streamed(get, never):Bool;
+
+	/** Signal dispatched on sound completion, separate from onComplete/looping. */
+	public final onFinish:FlxSignal = new FlxSignal();
+	#end
 	
 	/**
 	 * The length of the sound in milliseconds.
@@ -157,6 +206,11 @@ class FlxSound extends FlxBasic
 	 * Internal tracker for a Flash sound channel object.
 	 */
 	var _channel:SoundChannel;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Compatibility view of OpenFL's active Lime audio source. */
+	var _source(get, never):AudioSource;
+	#end
 	
 	/**
 	 * Internal tracker for a Flash sound transform object.
@@ -188,6 +242,10 @@ class FlxSound extends FlxBasic
 	 * Internal tracker for pitch.
 	 */
 	var _pitch:Float = 1.0;
+	#if CODENAME_ENGINE_COMPAT
+	var _timeScaleAdjust:Float = 1.0;
+	var _realPitch:Float = 1.0;
+	#end
 	#end
 	
 	/**
@@ -265,7 +323,7 @@ class FlxSound extends FlxBasic
 	/**
 	 * An internal function for clearing all the variables used by sounds.
 	 */
-	function reset():Void
+	#if CODENAME_ENGINE_COMPAT public #end function reset():Void
 	{
 		destroy();
 		
@@ -275,6 +333,9 @@ class FlxSound extends FlxBasic
 		_time = 0;
 		_paused = false;
 		_volume = 1.0;
+		#if CODENAME_ENGINE_COMPAT
+		@:bypassAccessor muted = false;
+		#end
 		_volumeAdjust = 1.0;
 		looped = false;
 		loopTime = 0.0;
@@ -822,7 +883,7 @@ class FlxSound extends FlxBasic
 	 */
 	public inline function getActualVolume():Float
 	{
-		return _volume * _volumeAdjust;
+		return #if CODENAME_ENGINE_COMPAT (group != null ? group.getVolume() : 1.0) * #end _volume * _volumeAdjust;
 	}
 	
 	/**
@@ -845,8 +906,8 @@ class FlxSound extends FlxBasic
 	@:allow(flixel.system.frontEnds.SoundFrontEnd)
 	function updateTransform():Void
 	{
-		_transform.volume = #if FLX_SOUND_SYSTEM (FlxG.sound.muted ? 0 : 1) * FlxG.sound.volume * #end
-			(group != null ? group.volume : 1) * _volume * _volumeAdjust;
+		_transform.volume = #if CODENAME_ENGINE_COMPAT (muted ? 0 : 1) * #end #if FLX_SOUND_SYSTEM (FlxG.sound.muted ? 0 : 1) * FlxG.sound.volume * #end
+			(group != null ? #if CODENAME_ENGINE_COMPAT group.getVolume() #else group.volume #end : 1) * _volume * _volumeAdjust;
 			
 		if (_channel != null)
 			_channel.soundTransform = _transform;
@@ -898,6 +959,9 @@ class FlxSound extends FlxBasic
 	 */
 	function stopped(?_):Void
 	{
+		#if CODENAME_ENGINE_COMPAT
+			onFinish.dispatch();
+		#end
 		if (onComplete != null)
 			onComplete();
 			
@@ -949,6 +1013,86 @@ class FlxSound extends FlxBasic
 			_paused = false;
 		}
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	// ---- public property accessors ----
+	inline function get_target():Null<FlxObject> { return _target; }
+	inline function set_target(v:Null<FlxObject>):Null<FlxObject> { return _target = v; }
+
+	inline function get_radius():Float { return _radius; }
+	inline function set_radius(v:Float):Float { return _radius = v; }
+
+	inline function get_proximityPan():Bool { return _proximityPan; }
+	inline function set_proximityPan(v:Bool):Bool { return _proximityPan = v; }
+
+	inline function get_channels():Int {
+		@:privateAccess
+		return (buffer != null) ? buffer.channels : 0;
+	}
+
+	inline function get_stereo():Bool { return channels > 1; }
+
+	inline function get_streamed():Bool {
+		@:privateAccess return #if lime_vorbis (_sound != null && _sound.__buffer.__srcVorbisFile != null) #else false #end;
+	}
+
+	// ---- CNE utility methods ----
+	public inline function getActualTime():Float
+	{
+		return time;
+	}
+
+	#if FLX_PITCH
+	public inline function getActualPitch():Float
+	{
+		return _realPitch;
+	}
+	#end
+
+	public inline function calcTransformVolume():Float
+	{
+		if (muted) return 0.0;
+		#if FLX_SOUND_SYSTEM
+		if (FlxG.sound.muted) return 0.0;
+		return FlxG.sound.volume * getActualVolume();
+		#else
+		return getActualVolume();
+		#end
+	}
+
+	public function getPosition(?result:FlxPoint):FlxPoint
+	{
+		if (result == null) result = FlxPoint.get();
+		return result.set(x, y);
+	}
+
+	// ---- CNE amplitude (uses public SoundChannel peaks) ----
+	inline function update_amplitude():Void {
+		if (_channel != null && _transform != null && _transform.volume > 0) {
+			amplitudeLeft = _channel.leftPeak / _transform.volume;
+			amplitudeRight = _channel.rightPeak / _transform.volume;
+			amplitude = Math.max(amplitudeLeft, amplitudeRight);
+		}
+	}
+
+	// ---- Internal helpers ----
+	inline function get_loaded():Bool
+	{
+		return buffer != null;
+	}
+
+	inline function get_buffer():AudioBuffer
+	{
+		@:privateAccess
+		return _sound != null ? _sound.__buffer : null;
+	}
+
+	inline function get__source():AudioSource
+	{
+		@:privateAccess
+		return _channel != null ? _channel.__audioSource : null;
+	}
+	#end
 	
 	/**
 	 * Internal event handler for ID3 info (i.e. fetching the song name).
@@ -1008,6 +1152,15 @@ class FlxSound extends FlxBasic
 		updateTransform();
 		return Volume;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	function set_muted(value:Bool):Bool
+	{
+		muted = value;
+		updateTransform();
+		return value;
+	}
+	#end
 	
 	#if FLX_PITCH
 	inline function get_pitch():Float

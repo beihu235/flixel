@@ -22,6 +22,9 @@ import flixel.util.FlxArrayUtil;
 import flixel.util.FlxColor;
 import flixel.util.FlxDestroyUtil.IFlxDestroyable;
 import flixel.math.FlxPoint;
+#if CODENAME_ENGINE_COMPAT
+import flixel.util.typeLimit.OneOfTwo;
+#end
 
 /** @since 4.5.0 **/
 enum abstract FlxTweenType(Int) from Int to Int
@@ -175,6 +178,49 @@ enum abstract FlxTweenType(Int) from Int to Int
  */
 class FlxTween implements IFlxDestroyable
 {
+	#if CODENAME_ENGINE_COMPAT
+	/** Parses dotted and indexed property paths used by Codename scripts. */
+	public static function parseFieldString(input:String):Array<OneOfTwo<String, Int>>
+	{
+		var result:Array<OneOfTwo<String, Int>> = [];
+		var start = 0;
+		var inBracket = false;
+		var lastWasDot = false;
+		for (i in 0...input.length)
+		{
+			var code = StringTools.unsafeCodeAt(input, i);
+			switch (code)
+			{
+				case ".".code:
+					if (!inBracket && (i > start || lastWasDot))
+						result.push(input.substr(start, i - start));
+					start = i + 1;
+					lastWasDot = true;
+				case "[".code if (!inBracket):
+					if (i > start)
+						result.push(input.substr(start, i - start));
+					else if (lastWasDot)
+						result.push("");
+					start = i + 1;
+					inBracket = true;
+					lastWasDot = false;
+				case "]".code if (inBracket):
+					if (i > start)
+						result.push(Std.parseInt(input.substr(start, i - start)));
+					start = i + 1;
+					inBracket = false;
+			}
+		}
+		if (start < input.length || lastWasDot)
+		{
+			var current = input.substr(start);
+			result.push(inBracket ? Std.parseInt(current) : current);
+		}
+		if (result.length == 0)
+			result.push("");
+		return result;
+	}
+	#end
 	/**
 	 * Deprecated, use `FlxTweenType.PERSIST` instead.
 	 */

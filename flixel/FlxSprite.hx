@@ -243,6 +243,25 @@ class FlxSprite extends FlxObject
 	 */
 	public var offset(default, null):FlxPoint;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Additional visual frame offset used by Codename character animations. */
+	public var frameOffset(default, null):FlxPoint;
+
+	/** Optional angle used when transforming `frameOffset`. */
+	public var frameOffsetAngle:Null<Float> = null;
+
+	/** Scriptable draw hook retained for Codename Engine mod compatibility. */
+	public var onDraw(default, set):FlxSprite->Void;
+
+	@:noCompletion public var __drawOverrided:Bool = false;
+
+	function set_onDraw(drawFunc:FlxSprite->Void):FlxSprite->Void
+	{
+		__drawOverrided = drawFunc != null;
+		return onDraw = drawFunc;
+	}
+	#end
+
 	/**
 	 * Change the size of your sprite's graphic.
 	 * NOTE: The hitbox is not automatically adjusted, use `updateHitbox()` for that.
@@ -293,6 +312,17 @@ class FlxSprite extends FlxObject
 	 * Set to `null` to discard graphic frame clipping.
 	 */
 	public var clipRect(default, set):FlxRect;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Non-rounded clipping rectangle used by Codename editor and UI widgets. */
+	public var rawClipRect(get, set):FlxRect;
+
+	/** Allows Codename UI code to opt out of applying a sprite shader. */
+	public var shaderEnabled:Bool = true;
+
+	/** Optional Codename draw target. Kept dynamic to avoid replacing NF's renderer. */
+	public var layer:Dynamic;
+	#end
 
 	/**
 	 * GLSL shader for this sprite. Avoid changing it frequently as this is a costly operation.
@@ -407,6 +437,9 @@ class FlxSprite extends FlxObject
 		_flashRect2 = new Rectangle();
 		_flashPointZero = new Point();
 		offset = FlxPoint.get();
+		#if CODENAME_ENGINE_COMPAT
+		frameOffset = FlxPoint.get();
+		#end
 		origin = FlxPoint.get();
 		scale = FlxPoint.get(1, 1);
 		graphicScale = FlxPoint.get(1, 1);
@@ -433,6 +466,11 @@ class FlxSprite extends FlxObject
 		animation = FlxDestroyUtil.destroy(animation);
 
 		offset = FlxDestroyUtil.put(offset);
+		#if CODENAME_ENGINE_COMPAT
+		frameOffset = FlxDestroyUtil.put(frameOffset);
+		onDraw = null;
+		__drawOverrided = false;
+		#end
 		origin = FlxDestroyUtil.put(origin);
 		scale = FlxDestroyUtil.put(scale);
 		graphicScale = FlxDestroyUtil.put(graphicScale);
@@ -685,6 +723,21 @@ class FlxSprite extends FlxObject
 		return this;
 	}
 
+	#if CODENAME_ENGINE_COMPAT
+	/**
+	 * Creates a cached one-pixel graphic and scales it to the requested size.
+	 * This is Codename's low-allocation equivalent of `makeGraphic()`.
+	 */
+	public function makeSolid(width:Int, height:Int, color = FlxColor.WHITE, unique = false, ?key:String):FlxSprite
+	{
+		var graph:FlxGraphic = FlxG.bitmap.create(1, 1, color, unique, key);
+		frames = graph.imageFrame;
+		scale.set(width, height);
+		updateHitbox();
+		return this;
+	}
+	#end
+
 	/**
 	 * Called whenever a new graphic is loaded for this sprite (after `loadGraphic()`, `makeGraphic()` etc).
 	 */
@@ -836,6 +889,16 @@ class FlxSprite extends FlxObject
 	 */
 	override public function draw():Void
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (__drawOverrided)
+		{
+			__drawOverrided = false;
+			onDraw(this);
+			__drawOverrided = true;
+			return;
+		}
+		#end
+
 		checkEmptyFrame();
 
 		if (alpha == 0 || _frame.type == FlxFrameType.EMPTY)
@@ -879,8 +942,26 @@ class FlxSprite extends FlxObject
 	@:noCompletion
 	function drawComplex(camera:FlxCamera):Void
 	{
+		#if CODENAME_ENGINE_COMPAT
+		_frame.prepareMatrix(_matrix, FlxFrameAngle.ANGLE_0, checkFlipX() != camera.flipX, checkFlipY() != camera.flipY);
+		#else
 		_frame.prepareMatrix(_matrix, FlxFrameAngle.ANGLE_0, checkFlipX(), checkFlipY());
+		#end
 		_matrix.translate(-origin.x, -origin.y);
+
+		#if CODENAME_ENGINE_COMPAT
+		if (frameOffsetAngle != null && frameOffsetAngle != angle)
+		{
+			var angleOffset = (frameOffsetAngle - angle) * FlxAngle.TO_RAD;
+			var offsetCos = Math.cos(angleOffset);
+			var offsetSin = Math.sin(angleOffset);
+			_matrix.rotateWithTrig(offsetCos, -offsetSin);
+			_matrix.translate(-frameOffset.x, -frameOffset.y);
+			_matrix.rotateWithTrig(offsetCos, offsetSin);
+		}
+		else
+			_matrix.translate(-frameOffset.x, -frameOffset.y);
+		#end
 
 		var sx = scale.x * graphicScale.x;
 		var sy = scale.y * graphicScale.y;
@@ -908,8 +989,23 @@ class FlxSprite extends FlxObject
 			_matrix.ty = Math.floor(_matrix.ty);
 		}
 
+		#if CODENAME_ENGINE_COMPAT
+		doAdditionalMatrixStuff(_matrix, camera);
+		#end
+		#if CODENAME_ENGINE_COMPAT
+		if (layer != null)
+			layer.drawPixels(this, camera, _frame, framePixels, _matrix, colorTransform, blend, antialiasing, shaderEnabled ? shader : null);
+		else
+			camera.drawPixels(_frame, framePixels, _matrix, colorTransform, blend, antialiasing, shaderEnabled ? shader : null);
+		#else
 		camera.drawPixels(_frame, framePixels, _matrix, colorTransform, blend, antialiasing, shader);
+		#end
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Final matrix hook used by Codename sprite subclasses and scripts. */
+	public function doAdditionalMatrixStuff(matrix:FlxMatrix, camera:FlxCamera):Void {}
+	#end
 
 	/**
 	 * Stamps / draws another `FlxSprite` onto this `FlxSprite`.
@@ -1312,6 +1408,11 @@ class FlxSprite extends FlxObject
 	 */
 	override public function isOnScreen(?camera:FlxCamera):Bool
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (forceIsOnScreen)
+			return true;
+		#end
+
 		if (camera == null)
 			camera = FlxG.camera;
 		
@@ -1326,6 +1427,10 @@ class FlxSprite extends FlxObject
 	{
 		if (FlxG.renderTile)
 			return false;
+		#if CODENAME_ENGINE_COMPAT
+		if (camera != null && (camera.flipX || camera.flipY))
+			return false;
+		#end
 
 		return isSimpleRenderBlit(camera);
 	}
@@ -1614,6 +1719,23 @@ class FlxSprite extends FlxObject
 
 		return rect;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	@:noCompletion
+	function set_rawClipRect(rect:FlxRect):FlxRect
+	{
+		@:bypassAccessor clipRect = rect;
+		if (frames != null)
+			frame = frames.frames[animation.frameIndex];
+		return rect;
+	}
+
+	@:noCompletion
+	inline function get_rawClipRect():FlxRect
+	{
+		return clipRect;
+	}
+	#end
 
 
 	/**

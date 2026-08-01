@@ -1,6 +1,8 @@
 package flixel.animation;
 
 import flixel.FlxG;
+import flixel.util.FlxSignal.FlxTypedSignal;
+import flixel.util.FlxDestroyUtil;
 
 /**
  * Just a helper structure for the `FlxSprite` animation system.
@@ -41,6 +43,14 @@ class FlxAnimation extends FlxBaseAnimation
 	 * Whether the current animation has finished.
 	 */
 	public var finished(default, null):Bool = true;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** True when playback is positioned on its terminal frame. */
+	public var isAtEnd(get, never):Bool;
+
+	/** Source prefix retained for Codename's animation editor and scripts. */
+	public var prefix:String;
+	#end
 
 	/**
 	 * Whether the current animation gets updated or not.
@@ -92,6 +102,16 @@ class FlxAnimation extends FlxBaseAnimation
 	 */
 	var _frameTimer:Float = 0;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Delay before the end-of-final-frame callback is dispatched. */
+	var _frameFinishedEndTimer:Float = 0;
+	#end
+
+	public var onFinish:FlxTypedSignal<Void->Void> = new FlxTypedSignal();
+	public var onFinishEnd:FlxTypedSignal<Void->Void> = new FlxTypedSignal();
+	public var onPlay:FlxTypedSignal<String->Bool->Bool->Int->Void> = new FlxTypedSignal();
+	public var onLoop:FlxTypedSignal<Void->Void> = new FlxTypedSignal();
+
 	/**
 	 * @param   name        What this animation should be called (e.g. `"run"`).
 	 * @param   frames      An array of numbers indicating what frames to play in what order (e.g. `[1, 2, 3]`).
@@ -116,6 +136,10 @@ class FlxAnimation extends FlxBaseAnimation
 	 */
 	override public function destroy():Void
 	{
+		FlxDestroyUtil.destroy(onFinish);
+		FlxDestroyUtil.destroy(onFinishEnd);
+		FlxDestroyUtil.destroy(onPlay);
+		FlxDestroyUtil.destroy(onLoop);
 		frames = null;
 		name = null;
 		super.destroy();
@@ -143,6 +167,9 @@ class FlxAnimation extends FlxBaseAnimation
 		reversed = Reversed;
 		paused = false;
 		_frameTimer = 0;
+		#if CODENAME_ENGINE_COMPAT
+		_frameFinishedEndTimer = 0;
+		#end
 		finished = frameDuration == 0;
 
 		var maxFrameIndex:Int = numFrames - 1;
@@ -158,7 +185,24 @@ class FlxAnimation extends FlxBaseAnimation
 		}
 
 		if (finished)
-			parent.fireFinishCallback(name);
+		{
+			#if CODENAME_ENGINE_COMPAT
+			_frameFinishedEndTimer = frameDuration;
+			#end
+			onFinish.dispatch();
+			if (parent != null)
+				parent.fireFinishCallback(name);
+		}
+		else
+		{
+			#if CODENAME_ENGINE_COMPAT
+			_frameFinishedEndTimer = 0;
+			#end
+		}
+
+		if (parent != null)
+			parent.firePlayCallback(name, Force, Reversed, curFrame);
+		onPlay.dispatch(name, Force, Reversed, curFrame);
 	}
 
 	public function restart():Void
@@ -201,8 +245,27 @@ class FlxAnimation extends FlxBaseAnimation
 			play(false, reversed);
 	}
 
+	#if CODENAME_ENGINE_COMPAT
+	inline function _doFinishedEndCallback():Void
+	{
+		parent.onFinishEnd.dispatch(name);
+		onFinishEnd.dispatch();
+	}
+	#end
+
 	override public function update(elapsed:Float):Void
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (!paused && _frameFinishedEndTimer > 0)
+		{
+			_frameFinishedEndTimer -= elapsed * timeScale;
+			if (_frameFinishedEndTimer <= 0)
+			{
+				_frameFinishedEndTimer = 0;
+				_doFinishedEndCallback();
+			}
+		}
+		#end
 		var curFrameDuration = getCurrentFrameDuration();
 		if (curFrameDuration == 0 || finished || paused)
 			return;
@@ -217,6 +280,7 @@ class FlxAnimation extends FlxBaseAnimation
 				{
 					curFrame = numFrames - 1;
 					parent.fireLoopCallback(name);
+					onLoop.dispatch();
 				}
 				else
 				{
@@ -229,6 +293,7 @@ class FlxAnimation extends FlxBaseAnimation
 				{
 					curFrame = loopPoint;
 					parent.fireLoopCallback(name);
+					onLoop.dispatch();
 				}
 				else
 				{
@@ -285,7 +350,13 @@ class FlxAnimation extends FlxBaseAnimation
 		curIndex = frames[curFrame];
 
 		if (finished && parent != null)
+		{
+			#if CODENAME_ENGINE_COMPAT
+			_frameFinishedEndTimer = frameDuration;
+			#end
+			onFinish.dispatch();
 			parent.fireFinishCallback(name);
+		}
 
 		return frame;
 	}
@@ -294,6 +365,13 @@ class FlxAnimation extends FlxBaseAnimation
 	{
 		return frames.length;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	inline function get_isAtEnd():Bool
+	{
+		return curFrame == (reversed ? 0 : numFrames - 1);
+	}
+	#end
 
 	inline function get_delay()
 	{

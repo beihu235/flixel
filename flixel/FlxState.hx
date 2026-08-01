@@ -44,6 +44,11 @@ class FlxState extends FlxContainer
 	 */
 	public var destroySubStates:Bool = true;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Tracks whether Codename's post-create lifecycle hook has run. */
+	public var postCreated:Bool = false;
+	#end
+
 	/**
 	 * The natural background color the cameras default to. In `AARRGGBB` format.
 	 */
@@ -106,6 +111,14 @@ class FlxState extends FlxContainer
 	 * the constructor, unless you want some crazy unpredictable things to happen!
 	 */
 	public function create():Void {}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Called after create() once the state has been fully attached to Flixel. */
+	public function createPost():Void
+	{
+		postCreated = true;
+	}
+	#end
 
 	override public function update(elapsed:Float):Void
 	{
@@ -174,13 +187,18 @@ class FlxState extends FlxContainer
 
 			subState._parentState = this;
 
-			if (!subState._created)
+			var didCreate = false;
+			if (didCreate = !subState._created)
 			{
 				subState._created = true;
 				subState.create();
 			}
 			if (subState.openCallback != null)
 				subState.openCallback();
+			#if CODENAME_ENGINE_COMPAT
+			if (didCreate)
+				subState.createPost();
+			#end
 			if (_subStateOpened != null)
 				_subStateOpened.dispatch(subState);
 		}

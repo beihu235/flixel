@@ -12,6 +12,10 @@ import openfl.display.StageAlign;
 import openfl.display.StageScaleMode;
 import openfl.events.Event;
 import openfl.filters.BitmapFilter;
+#if CODENAME_ENGINE_COMPAT
+import flixel.system.FlxAssets.FlxShader;
+import openfl.filters.ShaderFilter;
+#end
 #if desktop
 import openfl.events.FocusEvent;
 #end
@@ -168,6 +172,15 @@ class FlxGame extends Sprite
 	 * The filters array to be applied to the game.
 	 */
 	var _filters:Array<BitmapFilter>;
+
+	#if CODENAME_ENGINE_COMPAT
+	/**
+	 * Defers bitmap-cache cleanup until after the incoming state's create().
+	 * Defaults to false so regular NovaFlare games retain the newer Flixel
+	 * lifecycle.
+	 */
+	public var deferBitmapCacheClearOnStateSwitch:Bool = false;
+	#end
 
 	#if (desktop && lime_legacy)
 	/**
@@ -330,6 +343,33 @@ class FlxGame extends Sprite
 	{
 		_filters = filters;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Adds a shader filter to the complete game output. */
+	public function addShader(shader:FlxShader):ShaderFilter
+	{
+		if (_filters == null)
+			_filters = [];
+
+		var filter = new ShaderFilter(shader);
+		_filters.push(filter);
+		return filter;
+	}
+
+	/** Removes the game filter wrapping the specified shader. */
+	public function removeShader(shader:FlxShader):Bool
+	{
+		if (_filters == null)
+			return false;
+
+		for (filter in _filters)
+		{
+			if (filter is ShaderFilter && cast(filter, ShaderFilter).shader == shader)
+				return _filters.remove(filter);
+		}
+		return false;
+	}
+	#end
 
 	/**
 	 * Used to instantiate the guts of the flixel game object once we have a valid reference to the root.
@@ -685,8 +725,13 @@ class FlxGame extends Sprite
 		if (_state != null)
 			_state.destroy();
 
-		// we need to clear bitmap cache only after previous state is destroyed, which will reset useCount for FlxGraphic objects
-		FlxG.bitmap.clearCache();
+		// We normally clear after the old state is destroyed. Codename's old Flixel
+		// performs this after the incoming state's create(), so its preloaded and
+		// transition graphics already have live references.
+		#if CODENAME_ENGINE_COMPAT
+		if (!deferBitmapCacheClearOnStateSwitch)
+		#end
+			FlxG.bitmap.clearCache();
 
 		// Finally assign and create the new state
 		_state = _nextState.createInstance();
@@ -699,6 +744,11 @@ class FlxGame extends Sprite
 		FlxG.signals.preStateCreate.dispatch(_state);
 
 		_state.create();
+		#if CODENAME_ENGINE_COMPAT
+		if (deferBitmapCacheClearOnStateSwitch)
+			FlxG.bitmap.clearCache();
+		_state.createPost();
+		#end
 
 		if (_gameJustStarted)
 			gameStart();

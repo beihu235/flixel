@@ -141,7 +141,10 @@ class FlxFramesCollection implements IFlxDestroyable
 		border = FlxDestroyUtil.put(border);
 		framesByName = null;
 		
-		if (parent != null)
+		// When the parent graphic owns this destruction pass it has already been
+		// marked destroyed and is iterating this collection array. Removing from
+		// that same array here both emits a false warning and can skip siblings.
+		if (parent != null && !parent.isDestroyed)
 		{
 			parent.removeFrameCollection(this);
 		}

@@ -542,6 +542,27 @@ class FlxMath
 		return fastSin(n + 1.570796327); // sin and cos are the same, offset by pi/2
 	}
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Computes the paired approximations without normalizing the angle twice. */
+	public static inline function fastSinCos(angle:Float):{sin:Float, cos:Float}
+	{
+		var n = angle * 0.3183098862;
+		if (n > 1)
+			n -= (Math.ceil(n) >> 1) << 1;
+		else if (n < -1)
+			n += (Math.ceil(-n) >> 1) << 1;
+
+		var sin = n > 0
+			? n * (3.1 + n * (0.5 + n * (-7.2 + n * 3.6)))
+			: n * (3.1 - n * (0.5 + n * (7.2 + n * 3.6)));
+		var cos = Math.sqrt(1 - sin * sin);
+		var normalized = n * Math.PI;
+		if (normalized < -Math.PI * 0.5 || normalized > Math.PI * 0.5)
+			cos = -cos;
+		return {sin: sin, cos: cos};
+	}
+	#end
+
 	/**
 	 * Hyperbolic sine.
 	 */

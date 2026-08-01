@@ -72,6 +72,14 @@ class FlxAnimationController implements IFlxDestroyable
 	 */
 	@:deprecated('finishCallback is deprecated, use onFinish.add') // 5.9.0
 	public var finishCallback:(animName:String) -> Void;
+
+	/**
+	 * If assigned, will be called each time the current animation is played.
+	 *
+	 * playCallback is deprecated, use onPlay.add
+	 */
+	@:deprecated('playCallback is deprecated, use onPlay.add') // 5.9.0, idk actually -ralty cne
+	public var playCallback:(name:String, forced:Bool, reversed:Bool, frame:Int) -> Void;
 	
 	/**
 	 * Dispatches each time the current animation's frame changes
@@ -90,7 +98,23 @@ class FlxAnimationController implements IFlxDestroyable
 	 * @since 5.9.0
 	 */
 	public final onFinish = new FlxTypedSignal<(animName:String)->Void>();
-	
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Dispatches after the final frame has remained visible for its duration. */
+	public final onFinishEnd = new FlxTypedSignal<(animName:String)->Void>();
+	#end
+
+	/**
+	 * Dispatches each time the current animation is played.
+	 *
+	 * @param   animName     The name of the current animation
+	 * @param   forced       Whether the animation was forced to play
+	 * @param   reversed     Whether the animation was played in reverse
+	 * @param   frame        The current animation's frameIndex in the tile sheet
+	 * @since 5.9.0
+	 */
+	public final onPlay = new FlxTypedSignal<(animName:String, forced:Bool, reversed:Bool, frame:Int) -> Void>();
+
 	/**
 	 * Dispatches each time the current animation's loop is complete.
 	 * Works only with looped animations.
@@ -181,8 +205,12 @@ class FlxAnimationController implements IFlxDestroyable
 	@:haxe.warning("-WDeprecated")
 	public function destroy():Void
 	{
+		FlxDestroyUtil.destroy(onPlay);
 		FlxDestroyUtil.destroy(onFrameChange);
 		FlxDestroyUtil.destroy(onFinish);
+		#if CODENAME_ENGINE_COMPAT
+		FlxDestroyUtil.destroy(onFinishEnd);
+		#end
 		FlxDestroyUtil.destroy(onLoop);
 
 		destroyAnimations();
@@ -534,6 +562,9 @@ class FlxAnimationController implements IFlxDestroyable
 				final frameIndices:Array<Int> = [];
 				byPrefixHelper(frameIndices, animFrames, prefix); // finds frames and appends them to the blank array
 				final anim = new FlxAnimation(this, name, frameIndices, frameRate, looped, flipX, flipY);
+				#if CODENAME_ENGINE_COMPAT
+				anim.prefix = prefix;
+				#end
 				_animations.set(name, anim);
 			}
 			else
@@ -731,6 +762,17 @@ class FlxAnimationController implements IFlxDestroyable
 		}
 		
 		onFinish.dispatch(name);
+	}
+
+	@:allow(flixel.animation)
+	function firePlayCallback(name:String, forced:Bool, reversed:Bool, frame:Int):Void
+	{
+		if (playCallback != null)
+		{
+			playCallback(name, forced, reversed, frame);
+		}
+
+		onPlay.dispatch(name, forced, reversed, frame);
 	}
 
 	@:allow(flixel.animation)

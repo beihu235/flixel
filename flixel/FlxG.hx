@@ -94,6 +94,11 @@ class FlxG
 	 */
 	public static var animationTimeScale:Float = 1.0;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Global texture filtering gate used by Codename's appearance option. */
+	public static var enableAntialiasing:Bool = true;
+	#end
+
 	/**
 	 * How many times the quad tree should divide the world on each axis.
 	 * Generally, sparse collisions can have fewer divisons,

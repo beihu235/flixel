@@ -1336,7 +1336,11 @@ class FlxTextFormat
 	}
 }
 
+#if CODENAME_ENGINE_COMPAT
+class FlxTextFormatRange
+#else
 private class FlxTextFormatRange
+#end
 {
 	public var range(default, null):FlxRange<Int>;
 	public var format(default, null):FlxTextFormat;

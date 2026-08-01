@@ -28,6 +28,10 @@ import flixel.util.FlxStringUtil;
  */
 class FlxBar extends FlxSprite
 {
+	#if CODENAME_ENGINE_COMPAT
+	/** Compatibility switch retained for Codename's continuously clipped bars. */
+	public var unbounded:Bool = false;
+	#end
 	/**
 	 * If false, the bar is tracking its parent
 	 * (the position is synchronized with the parent's position).

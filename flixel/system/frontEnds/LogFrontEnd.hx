@@ -10,6 +10,10 @@ import haxe.PosInfos;
  */
 class LogFrontEnd
 {
+	#if CODENAME_ENGINE_COMPAT
+	/** Optional mirror used by Codename's colored console logger. */
+	public static var onLogs:(data:Dynamic, style:LogStyle, fireOnce:Bool)->Void;
+	#end
 	/**
 	 * Whether everything you trace() is being redirected into the log window.
 	 */
@@ -51,6 +55,11 @@ class LogFrontEnd
 			style = LogStyle.NORMAL;
 		
 		final arrayData = (!(data is Array) ? [data] : cast data);
+
+		#if CODENAME_ENGINE_COMPAT
+		if (onLogs != null)
+			onLogs(data, style, fireOnce);
+		#end
 		
 		#if FLX_DEBUG
 		// Check null game since `FlxG.save.bind` may be called before `new FlxGame`

@@ -77,10 +77,23 @@ class FlxFrame implements IFlxDestroyable
 	
 	static inline function checkValidName(name:String, prefixLength:Int, suffixLength:Int)
 	{
-		final nameSub = name.substring(prefixLength, name.length - suffixLength);
+		var nameSub = name.substring(prefixLength, name.length - suffixLength);
+		// Handle directory-style frame names ("sick/0001") and descriptive names ("normal", "hit")
+		final lastSlash = nameSub.lastIndexOf("/");
+		if (lastSlash != -1) nameSub = nameSub.substring(lastSlash + 1);
 		final num:Null<Int> = Std.parseInt(nameSub);
 		if (num == null)
-			FlxG.log.warn('Could not parse frame number of "$nameSub" in frame named "$name"');
+		{
+			// Try extracting leading numeric portion (e.g. "0011_8" -> "0011")
+			final digitMatch = ~/^(\d+)/;
+			if (digitMatch.match(nameSub))
+			{
+				final digitNum:Null<Int> = Std.parseInt(digitMatch.matched(1));
+				if (digitNum != null && digitNum < 0)
+					FlxG.log.warn('Found negative frame number "$nameSub" in frame named "$name"');
+			}
+			// Non-numeric frame names are valid — skip warning
+		}
 		else if (num < 0)
 			FlxG.log.warn('Found negative frame number "$nameSub" in frame named "$name"');
 	}
@@ -89,10 +102,21 @@ class FlxFrame implements IFlxDestroyable
 	{
 		inline function getNameOrder(name:String):Int
 		{
-			final num:Null<Int> = Std.parseInt(name.substring(prefixLength, name.length - suffixLength));
+			var nameSub = name.substring(prefixLength, name.length - suffixLength);
+			// Handle directory-style frame names ("sick/0001")
+			final lastSlash = nameSub.lastIndexOf("/");
+			if (lastSlash != -1) nameSub = nameSub.substring(lastSlash + 1);
+			var num:Null<Int> = Std.parseInt(nameSub);
+			// Try extracting leading numeric portion (e.g. "0011_8" -> "0011")
+			if (num == null)
+			{
+				final digitMatch = ~/^(\d+)/;
+				if (digitMatch.match(nameSub))
+					num = Std.parseInt(digitMatch.matched(1));
+			}
 			return if (num == null) 0 else FlxMath.absInt(num);
 		}
-		
+
 		return getNameOrder(frame1.name) - getNameOrder(frame2.name);
 	}
 

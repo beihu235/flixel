@@ -24,6 +24,9 @@ import flixel.util.FlxSpriteUtil;
 import openfl.Vector;
 import openfl.display.BlendMode;
 import openfl.filters.BitmapFilter;
+#if CODENAME_ENGINE_COMPAT
+import openfl.filters.ShaderFilter;
+#end
 import openfl.Lib;
 import haxe.ds.StringMap;
 
@@ -124,6 +127,15 @@ class FlxCamera extends FlxBasic
 	 */
 	public var target:FlxObject;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Whether target-follow calculations are currently enabled. */
+	public var followEnabled:Bool = true;
+
+	/** Pauses follow and camera effects without removing the camera. */
+	@:noCompletion
+	var paused:Bool = false;
+	#end
+
 	/**
 	 * Offset the camera target.
 	 */
@@ -205,6 +217,12 @@ class FlxCamera extends FlxBasic
 	 */
 	public var useBgAlphaBlending:Bool = false;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Camera-space sprite reflection used by Codename transitions and HUDs. */
+	public var flipX:Bool = false;
+	public var flipY:Bool = false;
+	#end
+
 	/**
 	 * Used to render buffer to screen space.
 	 * NOTE: We don't recommend modifying this directly unless you are fairly experienced.
@@ -247,6 +265,11 @@ class FlxCamera extends FlxBasic
 	 * their center, meaning as you zoom in, the view is cut off on all sides.
 	 */
 	public var zoom(default, set):Float;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Additive zoom channel used by Codename gameplay camera bumps. */
+	public var zoomMultiplier(default, set):Float = 1.0;
+	#end
 
 	/**
 	 * The margin cut off on the left and right by the camera zooming in (or out), in world space.
@@ -506,6 +529,31 @@ class FlxCamera extends FlxBasic
 	 * Internal, cache last-applied filters state to avoid redundant per-frame assignments.
 	 */
 	var _lastFiltersApplied:Null<Array<BitmapFilter>> = null;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Adds a shader filter while preserving any existing camera filters. */
+	public function addShader(shader:FlxShader):ShaderFilter
+	{
+		if (filters == null)
+			filters = [];
+		var filter = new ShaderFilter(shader);
+		filters.push(filter);
+		return filter;
+	}
+
+	/** Removes the filter wrapping the specified shader. */
+	public function removeShader(shader:FlxShader):Bool
+	{
+		if (filters == null)
+			return false;
+		for (filter in filters)
+		{
+			if (filter is ShaderFilter && cast(filter, ShaderFilter).shader == shader)
+				return filters.remove(filter);
+		}
+		return false;
+	}
+	#end
 
 	@:deprecated("_filters is deprecated, use filters instead")
 	var _filters(get, set):Null<Array<BitmapFilter>>;
@@ -1238,14 +1286,21 @@ class FlxCamera extends FlxBasic
 	override public function update(elapsed:Float):Void
 	{
 		// follow the target, if there is one
-		if (target != null)
+		if (target != null #if CODENAME_ENGINE_COMPAT && followEnabled && !paused #end)
 		{
 			updateFollow();
 		}
 
 		updateScroll();
+		#if CODENAME_ENGINE_COMPAT
+		if (!paused)
+		{
+		#end
 		updateFlash(elapsed);
 		updateFade(elapsed);
+		#if CODENAME_ENGINE_COMPAT
+		}
+		#end
 
 		if (flashSprite != null)
 		{
@@ -1257,7 +1312,10 @@ class FlxCamera extends FlxBasic
 			}
 		}
 
-		updateShake(elapsed);
+		#if CODENAME_ENGINE_COMPAT
+		if (!paused)
+		#end
+			updateShake(elapsed);
 		updateFlashSpritePosition();
 	}
 
@@ -2074,6 +2132,19 @@ class FlxCamera extends FlxBasic
 		return contained;
 	}
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Allows specialized cameras to transform an object's screen position. */
+	public function alterScreenPosition(spr:FlxObject, pos:FlxPoint):FlxPoint
+	{
+		return pos;
+	}
+
+	public inline function getActualZoom():Float
+	{
+		return zoom * zoomMultiplier;
+	}
+	#end
+
 	function set_followLerp(Value:Float):Float
 	{
 		return followLerp = FlxMath.bound(Value, 0, 60 / FlxG.updateFramerate);
@@ -2114,9 +2185,24 @@ class FlxCamera extends FlxBasic
 		if (zoom == ((Zoom == 0) ? defaultZoom : Zoom)) return zoom;
 
 		zoom = (Zoom == 0) ? defaultZoom : Zoom;
+		#if CODENAME_ENGINE_COMPAT
+		setScale(getActualZoom(), getActualZoom());
+		#else
 		setScale(zoom, zoom);
+		#end
 		return zoom;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	function set_zoomMultiplier(value:Float):Float
+	{
+		if (zoomMultiplier == value)
+			return value;
+		zoomMultiplier = value;
+		setScale(getActualZoom(), getActualZoom());
+		return value;
+	}
+	#end
 
 	function set_alpha(Alpha:Float):Float
 	{

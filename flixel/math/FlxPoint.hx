@@ -322,12 +322,34 @@ import openfl.geom.Point;
 	 * @param   y  Amount to add to y
 	 * @return  This point.
 	 */
+	#if CODENAME_ENGINE_COMPAT
+	public overload extern inline function add(?x:Float, ?y:Float):FlxPoint return this.add(x, y);
+
+	/**
+	 * Adds the coordinates of another point to the coordinates of this point.
+	 * @since 6.0.0
+	 *
+	 * @param   point  The point to add to this point
+	 * @return  This point.
+	 */
+	public overload inline extern function add(point:FlxPoint):FlxPoint return this.addPoint(point);
+
+	/**
+	 * Adds the coordinates of another point to the coordinates of this point.
+	 * @since 6.0.0
+	 *
+	 * @param   p  Any Point.
+	 * @return  A reference to the altered point parameter.
+	 */
+	public overload inline extern function add(p:Point):FlxPoint return this.add(p.x, p.y);
+	#else
 	public inline function add(x:Float = 0, y:Float = 0):FlxPoint
 	{
 		this.x += x;
 		this.y += y;
 		return this;
 	}
+	#end
 
 	/**
 	 * Adds the coordinates of another point to the coordinates of this point.
@@ -1571,6 +1593,17 @@ class FlxBasePoint implements IFlxPooled
 	{
 		return y = Value;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	public function add(x:Float = 0, y:Float = 0):FlxBasePoint return set(this.x + x, this.y + y);
+
+	public function addPoint(point:FlxBasePoint):FlxBasePoint
+	{
+		add(point.x, point.y);
+		point.putWeak();
+		return this;
+	}
+	#end
 }
 
 

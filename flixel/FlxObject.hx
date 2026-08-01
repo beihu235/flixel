@@ -1146,7 +1146,12 @@ class FlxObject extends FlxBasic
 		if (pixelPerfectPosition)
 			result.floor();
 
-		return result.subtract(camera.scroll.x * scrollFactor.x, camera.scroll.y * scrollFactor.y);
+		result.subtract(camera.scroll.x * scrollFactor.x, camera.scroll.y * scrollFactor.y);
+		#if CODENAME_ENGINE_COMPAT
+		return camera.alterScreenPosition(this, result);
+		#else
+		return result;
+		#end
 	}
 
 	/**
@@ -1208,8 +1213,18 @@ class FlxObject extends FlxBasic
 	 *                   If `null`, it will just grab the first global camera.
 	 * @return  Whether the object is on screen or not.
 	 */
+	#if CODENAME_ENGINE_COMPAT
+	/** Forces this object through the camera culling test for Codename scripts. */
+	public var forceIsOnScreen:Bool = false;
+	#end
+
 	public function isOnScreen(?camera:FlxCamera):Bool
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (forceIsOnScreen)
+			return true;
+		#end
+
 		if (camera == null)
 			camera = FlxG.camera;
 

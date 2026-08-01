@@ -56,6 +56,30 @@ class FlxGraphicsShader extends GraphicsShader
 			}
 			return vec4(0.0, 0.0, 0.0, 0.0);
 		}
+
+		uniform vec4 _camSize;
+
+		float map(float value, float min1, float max1, float min2, float max2)
+		{
+			return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+		}
+
+		vec2 getCamPos(vec2 pos)
+		{
+			vec4 size = _camSize / vec4(openfl_TextureSize, openfl_TextureSize);
+			return vec2(map(pos.x, size.x, size.x + size.z, 0.0, 1.0), map(pos.y, size.y, size.y + size.w, 0.0, 1.0));
+		}
+
+		vec2 camToOg(vec2 pos)
+		{
+			vec4 size = _camSize / vec4(openfl_TextureSize, openfl_TextureSize);
+			return vec2(map(pos.x, 0.0, 1.0, size.x, size.x + size.z), map(pos.y, 0.0, 1.0, size.y, size.y + size.w));
+		}
+
+		vec4 textureCam(sampler2D bitmap, vec2 pos)
+		{
+			return flixel_texture2D(bitmap, camToOg(pos));
+		}
 	")
 	@:glFragmentSource("
 		#pragma header
@@ -68,4 +92,11 @@ class FlxGraphicsShader extends GraphicsShader
 	{
 		super();
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	public function setCamSize(x:Float, y:Float, width:Float, height:Float):Void
+	{
+		data._camSize.value = [x, y, width, height];
+	}
+	#end
 }

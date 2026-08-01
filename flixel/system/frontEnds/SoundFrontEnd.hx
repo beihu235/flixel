@@ -42,6 +42,11 @@ class SoundFrontEnd
 	public var onVolumeChange(default, null):FlxTypedSignal<Float->Void> = new FlxTypedSignal<Float->Void>();
 
 	#if FLX_KEYBOARD
+	#if CODENAME_ENGINE_COMPAT
+	/** Lets text editors temporarily suppress the global volume hotkeys. */
+	public var keysAllowed:Bool = true;
+	#end
+
 	/**
 	 * The key codes used to increase volume (see FlxG.keys for the keys available).
 	 * Default keys: + (and numpad +). Set to null to deactivate.
@@ -398,7 +403,7 @@ class SoundFrontEnd
 			list.update(elapsed);
 
 		#if FLX_KEYBOARD
-		if (!FlxInputText.globalManager.isTyping)
+		if (!FlxInputText.globalManager.isTyping #if CODENAME_ENGINE_COMPAT && keysAllowed #end)
 		{
 			if (FlxG.keys.anyJustReleased(muteKeys))
 				toggleMuted();
@@ -409,6 +414,15 @@ class SoundFrontEnd
 		}
 		#end
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Explicit sound teardown exposed by Codename's gameplay and editor code. */
+	public inline function destroySound(sound:FlxSound):Void
+	{
+		if (sound != null)
+			sound.destroy();
+	}
+	#end
 
 	@:allow(flixel.FlxGame)
 	function onFocusLost():Void
