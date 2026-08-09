@@ -431,35 +431,49 @@ class FlxSound extends FlxBasic
 		}
 		#end
 
-		if (!playing)
+		// NativeAudioSource completion can invalidate _channel from its timer
+		// callback while the main thread is in this update. Hold one strong local
+		// reference for the whole frame instead of dereferencing the field again.
+		var channel = _channel;
+		if (!isChannelValid(channel))
+			return;
+
+		var transform = _transform;
+		if (transform == null)
 			return;
 			
-		_time = _channel.position;
+		_time = channel.position;
 		
 		var radialMultiplier:Float = 1.0;
 		
 		// Distance-based volume control
-		if (_target != null)
+		var target = _target;
+		if (target != null)
 		{
-			var targetPosition = _target.getPosition();
+			var targetPosition = target.getPosition();
 			radialMultiplier = targetPosition.distanceTo(FlxPoint.weak(x, y)) / _radius;
 			targetPosition.put();
 			radialMultiplier = 1 - FlxMath.bound(radialMultiplier, 0, 1);
 			
 			if (_proximityPan)
 			{
-				var d:Float = (x - _target.x) / _radius;
-				_transform.pan = FlxMath.bound(d, -1, 1);
+				var d:Float = (x - target.x) / _radius;
+				transform.pan = FlxMath.bound(d, -1, 1);
 			}
 		}
 		
 		_volumeAdjust = radialMultiplier;
 		updateTransform();
+
+		// The completion callback may have stopped or replaced this channel while
+		// updateTransform() was running. Its peak values no longer belong here.
+		if (_channel != channel || !isChannelValid(channel) || transform == null)
+			return;
 		
-		if (_transform.volume > 0)
+		if (transform.volume > 0)
 		{
-			amplitudeLeft = _channel.leftPeak / _transform.volume;
-			amplitudeRight = _channel.rightPeak / _transform.volume;
+			amplitudeLeft = channel.leftPeak / transform.volume;
+			amplitudeRight = channel.rightPeak / transform.volume;
 			amplitude = (amplitudeLeft + amplitudeRight) * 0.5;
 		}
 		else
@@ -906,21 +920,27 @@ class FlxSound extends FlxBasic
 	@:allow(flixel.system.frontEnds.SoundFrontEnd)
 	function updateTransform():Void
 	{
-		_transform.volume = #if CODENAME_ENGINE_COMPAT (muted ? 0 : 1) * #end #if FLX_SOUND_SYSTEM (FlxG.sound.muted ? 0 : 1) * FlxG.sound.volume * #end
-			(group != null ? #if CODENAME_ENGINE_COMPAT group.getVolume() #else group.volume #end : 1) * _volume * _volumeAdjust;
+		var transform = _transform;
+		if (transform == null)
+			return;
+
+		var soundGroup = group;
+		transform.volume = #if CODENAME_ENGINE_COMPAT (muted ? 0 : 1) * #end #if FLX_SOUND_SYSTEM (FlxG.sound.muted ? 0 : 1) * FlxG.sound.volume * #end
+			(soundGroup != null ? #if CODENAME_ENGINE_COMPAT soundGroup.getVolume() #else soundGroup.volume #end : 1) * _volume * _volumeAdjust;
 			
-		if (_channel != null)
-			_channel.soundTransform = _transform;
+		var channel = _channel;
+		if (isChannelValid(channel))
+			channel.soundTransform = transform;
 		
 		#if hxvlc
 		if (_vlcPlayer != null && _onVLC)
 		{
 			// Group volume performs one OpenAL call per VLC track. Do it only when
 			// the effective volume actually changes.
-			if (Math.isNaN(_lastVlcTransformVolume) || Math.abs(_lastVlcTransformVolume - _transform.volume) > 0.000001)
+			if (Math.isNaN(_lastVlcTransformVolume) || Math.abs(_lastVlcTransformVolume - transform.volume) > 0.000001)
 			{
-				_vlcPlayer.volume = _transform.volume;
-				_lastVlcTransformVolume = _transform.volume;
+				_vlcPlayer.volume = transform.volume;
+				_lastVlcTransformVolume = transform.volume;
 			}
 		}
 		#end
@@ -1068,9 +1088,11 @@ class FlxSound extends FlxBasic
 
 	// ---- CNE amplitude (uses public SoundChannel peaks) ----
 	inline function update_amplitude():Void {
-		if (_channel != null && _transform != null && _transform.volume > 0) {
-			amplitudeLeft = _channel.leftPeak / _transform.volume;
-			amplitudeRight = _channel.rightPeak / _transform.volume;
+		var channel = _channel;
+		var transform = _transform;
+		if (isChannelValid(channel) && transform != null && transform.volume > 0) {
+			amplitudeLeft = channel.leftPeak / transform.volume;
+			amplitudeRight = channel.rightPeak / transform.volume;
 			amplitude = Math.max(amplitudeLeft, amplitudeRight);
 		}
 	}
@@ -1138,7 +1160,23 @@ class FlxSound extends FlxBasic
 	
 	inline function get_playing():Bool
 	{
-		return _channel != null;
+		var channel = _channel;
+		#if hxvlc
+		// VLC uses a SoundChannel without an OpenFL AudioSource as a playback marker.
+		if (_onVLC)
+			return channel != null;
+		#end
+		return isChannelValid(channel);
+	}
+
+	inline function isChannelValid(channel:SoundChannel):Bool
+	{
+		#if flash
+		return channel != null;
+		#else
+		@:privateAccess
+		return channel != null && channel.__isValid;
+		#end
 	}
 	
 	inline function get_volume():Float

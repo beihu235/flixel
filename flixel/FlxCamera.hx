@@ -25,6 +25,7 @@ import openfl.Vector;
 import openfl.display.BlendMode;
 import openfl.filters.BitmapFilter;
 #if CODENAME_ENGINE_COMPAT
+import flixel.graphics.tile.FlxGraphicsShader;
 import openfl.filters.ShaderFilter;
 #end
 import openfl.Lib;
@@ -50,6 +51,19 @@ private typedef FlxDrawItem = flixel.graphics.tile.FlxDrawQuadsItem;
 class FlxCamera extends FlxBasic
 {
 	public static var enableBatchProfiler:Bool = false;
+	#if CODENAME_ENGINE_COMPAT
+	/** Enables CNE's _camSize updates only while the embedded CNE runtime is active. */
+	public static var cneShaderSizingEnabled:Bool = false;
+
+	/** Some non-CNE FlxGraphicsShader subclasses replace the GLSL and do not expose _camSize. */
+	public static inline function supportsCNEShaderSizing(shader:FlxGraphicsShader):Bool
+	{
+		if (shader == null)
+			return false;
+		var shaderData = shader.data;
+		return shaderData != null && Reflect.field(shaderData, "_camSize") != null;
+	}
+	#end
 		
 	/**
 	 * Any `FlxCamera` with a zoom of 0 (the default value) will have this zoom value.
@@ -1310,6 +1324,31 @@ class FlxCamera extends FlxBasic
 				flashSprite.filters = targetFilters;
 				_lastFiltersApplied = targetFilters;
 			}
+
+			#if CODENAME_ENGINE_COMPAT
+			// CNE camera shaders use _camSize to convert texture coordinates. Keep it
+			// in sync with the actual back-buffer size, as the original cne-flixel does.
+			if (cneShaderSizingEnabled && targetFilters != null)
+			{
+				var windowScale = FlxG.stage.window.scale;
+				var cameraWidth = width * initialZoom * FlxG.scaleMode.scale.x * windowScale;
+				var cameraHeight = height * initialZoom * FlxG.scaleMode.scale.y * windowScale;
+
+				for (filter in targetFilters)
+				{
+					if (filter is ShaderFilter)
+					{
+						var shaderFilter:ShaderFilter = cast filter;
+						if (shaderFilter.shader is FlxGraphicsShader)
+						{
+							var graphicsShader:FlxGraphicsShader = cast shaderFilter.shader;
+							if (supportsCNEShaderSizing(graphicsShader))
+								graphicsShader.setCamSize(0, 0, cameraWidth, cameraHeight);
+						}
+					}
+				}
+			}
+			#end
 		}
 
 		#if CODENAME_ENGINE_COMPAT

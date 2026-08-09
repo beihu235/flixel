@@ -6,6 +6,9 @@ import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxFrame;
 import flixel.graphics.frames.FlxFramesCollection;
 import flixel.graphics.frames.FlxTileFrames;
+#if CODENAME_ENGINE_COMPAT
+import flixel.graphics.tile.FlxGraphicsShader;
+#end
 import flixel.math.FlxAngle;
 import flixel.math.FlxMath;
 import flixel.math.FlxMatrix;
@@ -906,6 +909,16 @@ class FlxSprite extends FlxObject
 
 		if (dirty) // rarely
 			calcFrame(useFramePixels);
+
+		#if CODENAME_ENGINE_COMPAT
+		// CNE sprite shaders expect the current atlas frame in _camSize.
+		if (FlxCamera.cneShaderSizingEnabled && shaderEnabled && shader != null && shader is FlxGraphicsShader)
+		{
+			var graphicsShader:FlxGraphicsShader = cast shader;
+			if (FlxCamera.supportsCNEShaderSizing(graphicsShader))
+				graphicsShader.setCamSize(_frame.frame.x, _frame.frame.y, _frame.frame.width, _frame.frame.height);
+		}
+		#end
 
 		for (camera in getCamerasLegacy())
 		{

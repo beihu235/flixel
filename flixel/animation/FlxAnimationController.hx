@@ -879,7 +879,11 @@ class FlxAnimationController implements IFlxDestroyable
 
 	inline function get_frameName():String
 	{
-		return _sprite.frame.name;
+		// A sprite can legitimately have no current frame while a missing or
+		// delayed mod atlas is being resolved. Reflection-heavy Lua mods query
+		// frameName during that window, so keep the getter nullable instead of
+		// dereferencing a null FlxFrame in native code.
+		return _sprite != null && _sprite.frame != null ? _sprite.frame.name : null;
 	}
 
 	function set_frameName(Value:String):String
