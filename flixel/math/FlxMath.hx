@@ -277,6 +277,24 @@ class FlxMath
 	}
 
 	/**
+	 * Makes sure that `value` stays between `0` and `max`, wrapping at either end.
+	 *
+	 * This compatibility overload is part of the Flixel API used by Codename
+	 * scripts. It is kept as a real static function so reflective HScript calls
+	 * can resolve it on native targets.
+	 */
+	public static function wrapMax(value:Int, max:Int):Int
+	{
+		var range:Int = max + 1;
+		value %= range;
+
+		if (value < 0)
+			value += range;
+
+		return value;
+	}
+
+	/**
 	 * Remaps a number from one range to another.
 	 *
 	 * @param 	value	The incoming value to be converted

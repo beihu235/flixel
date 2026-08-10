@@ -7,6 +7,9 @@ import flixel.math.FlxPoint;
 import flixel.math.FlxRect;
 import flixel.system.FlxAssets;
 import flixel.util.FlxColor;
+#if CODENAME_ENGINE_COMPAT
+import haxe.ds.ObjectMap;
+#end
 import openfl.Assets;
 #if FLX_OPENGL_AVAILABLE
 import lime.graphics.opengl.GL;
@@ -42,6 +45,18 @@ class BitmapFrontEnd
 	var _whitePixel:FlxFrame;
 
 	var _lastUniqueKeyIndex:Int = 0;
+
+	#if CODENAME_ENGINE_COMPAT
+	/**
+	 * Whether the bitmap cache is between two state generations.
+	 * During this window, zero-use graphics must remain available to the incoming state.
+	 */
+	@:noCompletion
+	public var stateTransitionActive(default, null):Bool = false;
+
+	var _stateTransitionCache:Map<String, FlxGraphic>;
+	var _stateTransitionReused:ObjectMap<FlxGraphic, Bool>;
+	#end
 
 	public function new()
 	{
@@ -168,6 +183,9 @@ class BitmapFrontEnd
 	public inline function addGraphic(graphic:FlxGraphic):FlxGraphic
 	{
 		_cache.set(graphic.key, graphic);
+		#if CODENAME_ENGINE_COMPAT
+		markStateTransitionReuse(graphic.key, graphic);
+		#end
 		return graphic;
 	}
 
@@ -178,8 +196,20 @@ class BitmapFrontEnd
 	 */
 	public inline function get(key:String):FlxGraphic
 	{
-		return _cache.get(key);
+		var graphic = _cache.get(key);
+		#if CODENAME_ENGINE_COMPAT
+		markStateTransitionReuse(key, graphic);
+		#end
+		return graphic;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	inline function markStateTransitionReuse(key:String, graphic:FlxGraphic):Void
+	{
+		if (stateTransitionActive && graphic != null && _stateTransitionCache != null && _stateTransitionCache.get(key) == graphic)
+			_stateTransitionReused.set(graphic, true);
+	}
+	#end
 
 	/**
 	 * Gets key from bitmap cache for specified BitmapData
@@ -322,12 +352,93 @@ class BitmapFrontEnd
 			remove(graphic);
 	}
 
+	#if CODENAME_ENGINE_COMPAT
+	/**
+	 * Starts a bitmap-cache generation transition without modifying use counts.
+	 * Cache hits before the next clearCache() mark old graphics as reused by the incoming state.
+	 */
+	public function mapCacheAsDestroyable():Void
+	{
+		_stateTransitionCache = new Map<String, FlxGraphic>();
+		_stateTransitionReused = new ObjectMap<FlxGraphic, Bool>();
+
+		if (_cache != null)
+		{
+			for (key in _cache.keys())
+			{
+				var graphic = _cache.get(key);
+				if (graphic != null)
+					_stateTransitionCache.set(key, graphic);
+			}
+		}
+
+		stateTransitionActive = true;
+	}
+
+	function clearStateTransitionCache():Void
+	{
+		var transitionCache = _stateTransitionCache;
+		var transitionReused = _stateTransitionReused;
+		var toDestroy = new ObjectMap<FlxGraphic, Bool>();
+
+		// Stop cache operations triggered by destruction from changing this generation's result.
+		_stateTransitionCache = null;
+		_stateTransitionReused = null;
+
+		if (transitionCache != null)
+		{
+			for (key in transitionCache.keys())
+			{
+				var graphic = transitionCache.get(key);
+				if (graphic == null || graphic.isDestroyed)
+					continue;
+
+				// A cache hit is the explicit generation marker. Live references and persistent
+				// graphics are also retained to preserve current Flixel/NovaFlare ownership.
+				if (graphic.persist || graphic.useCount > 0 || (transitionReused != null && transitionReused.exists(graphic)))
+				{
+					// FunkinCache uses a second OpenFL cache layer during state switches. A
+					// Flixel cache hit bypasses OpenFL, so move retained assets back explicitly.
+					if (graphic.assetsKey != null)
+						Assets.cache.getBitmapData(graphic.assetsKey);
+					continue;
+				}
+
+				// Only remove the current mapping when it still points at the snapshotted
+				// object. A new graphic may have replaced the same key during create().
+				if (_cache != null && _cache.get(key) == graphic)
+					removeKey(key);
+
+				toDestroy.set(graphic, true);
+			}
+		}
+
+		// Keep the transition guard active while frame collections cascade their
+		// own decrementUseCount() calls.
+		for (graphic in toDestroy.keys())
+		{
+			if (!graphic.isDestroyed)
+				graphic.destroy();
+		}
+
+		stateTransitionActive = false;
+	}
+	#end
+
 	/**
 	 * Clears image cache (and destroys those images).
 	 * Graphics object will be removed and destroyed only if it shouldn't persist in the cache and its useCount is 0.
 	 */
 	public function clearCache():Void
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (stateTransitionActive)
+		{
+			clearStateTransitionCache();
+			return;
+		}
+		#end
+
 		if (_cache == null)
 		{
 			_cache = new Map();

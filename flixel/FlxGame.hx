@@ -717,6 +717,11 @@ class FlxGame extends Sprite
 
 		FlxG.signals.preStateSwitch.dispatch();
 
+		#if CODENAME_ENGINE_COMPAT
+		if (deferBitmapCacheClearOnStateSwitch)
+			FlxG.bitmap.mapCacheAsDestroyable();
+		#end
+
 		#if FLX_RECORD
 		FlxRandom.updateStateSeed();
 		#end
@@ -924,16 +929,29 @@ class FlxGame extends Sprite
 	{
 		if (FlxG.fixedTimestep)
 		{
+			#if CODENAME_ENGINE_COMPAT
+			FlxG.rawElapsed = _stepSeconds;
+			FlxG.elapsed = FlxG.timeScale * FlxG.rawElapsed;
+			#else
 			FlxG.elapsed = FlxG.timeScale * _stepSeconds; // fixed timestep
+			#end
 		}
 		else
 		{
+			#if CODENAME_ENGINE_COMPAT
+			FlxG.rawElapsed = _elapsedMS / 1000;
+			if (FlxG.rawElapsed > FlxG.maxElapsed)
+				FlxG.rawElapsed = FlxG.maxElapsed;
+
+			FlxG.elapsed = FlxG.timeScale * FlxG.rawElapsed;
+			#else
 			var e = FlxG.timeScale * (_elapsedMS / 1000); // variable timestep
 			var max = FlxG.maxElapsed * FlxG.timeScale;
 			if (e > max)
 				e = max;
 
 			FlxG.elapsed = e;
+			#end
 		}
 	}
 

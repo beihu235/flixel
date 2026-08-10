@@ -80,6 +80,12 @@ class FlxAnimationController implements IFlxDestroyable
 	 */
 	@:deprecated('playCallback is deprecated, use onPlay.add') // 5.9.0, idk actually -ralty cne
 	public var playCallback:(name:String, forced:Bool, reversed:Bool, frame:Int) -> Void;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Legacy callback dispatched whenever the current animation loops. */
+	@:deprecated('loopCallback is deprecated, use onLoop.add')
+	public var loopCallback:(animName:String) -> Void;
+	#end
 	
 	/**
 	 * Dispatches each time the current animation's frame changes
@@ -217,6 +223,10 @@ class FlxAnimationController implements IFlxDestroyable
 		_animations = null;
 		callback = null;
 		finishCallback = null;
+		playCallback = null;
+		#if CODENAME_ENGINE_COMPAT
+		loopCallback = null;
+		#end
 		_sprite = null;
 	}
 
@@ -482,6 +492,10 @@ class FlxAnimationController implements IFlxDestroyable
 			if (frameIndices.length > 0)
 			{
 				var anim:FlxAnimation = new FlxAnimation(this, Name, frameIndices, FrameRate, Looped, FlipX, FlipY);
+				#if CODENAME_ENGINE_COMPAT
+				anim.prefix = Prefix;
+				anim.usesIndices = true;
+				#end
 				_animations.set(Name, anim);
 			}
 		}
@@ -778,6 +792,10 @@ class FlxAnimationController implements IFlxDestroyable
 	@:allow(flixel.animation)
 	function fireLoopCallback(?name:String):Void
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (loopCallback != null)
+			loopCallback(name);
+		#end
 		onLoop.dispatch(name);
 	}
 

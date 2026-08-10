@@ -17,6 +17,11 @@ class FlxBaseAnimation implements IFlxDestroyable
 	 */
 	public var name:String;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Prefix used when this animation was created from named atlas frames. */
+	public var prefix:Null<String>;
+	#end
+
 	/**
 	 * Keeps track of the current index into the tile sheet based on animation or rotation.
 	 */
@@ -34,16 +39,22 @@ class FlxBaseAnimation implements IFlxDestroyable
 		return Value;
 	}
 
-	public function new(Parent:FlxAnimationController, Name:String)
+	public function new(Parent:FlxAnimationController, Name:String, ?Prefix:Null<String>)
 	{
 		parent = Parent;
 		name = Name;
+		#if CODENAME_ENGINE_COMPAT
+		prefix = Prefix;
+		#end
 	}
 
 	public function destroy():Void
 	{
 		parent = null;
 		name = null;
+		#if CODENAME_ENGINE_COMPAT
+		prefix = null;
+		#end
 	}
 
 	public function update(elapsed:Float):Void {}

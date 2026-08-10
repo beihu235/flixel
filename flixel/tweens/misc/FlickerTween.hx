@@ -2,6 +2,7 @@ package flixel.tweens.misc;
 
 import flixel.FlxBasic;
 import flixel.tweens.FlxTween;
+import flixel.tweens.FlxTween.TweenField;
 import flixel.tweens.FlxEase;
 
 /**
@@ -160,7 +161,7 @@ class FlickerTween extends FlxTween
 		basic.visible = endVisibility;
 	}
 	
-	override function isTweenOf(object:Dynamic, ?field:String):Bool
+	override function isTweenOf(object:Dynamic, ?field:TweenField):Bool
 	{
 		return basic == object && (field == null || field == "visible" || field == "flicker");
 	}

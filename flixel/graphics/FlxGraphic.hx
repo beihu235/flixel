@@ -615,6 +615,11 @@ class FlxGraphic implements IFlxDestroyable
 	
 	function checkUseCount()
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (FlxG.bitmap.stateTransitionActive)
+			return;
+		#end
+
 		if (useCount <= 0 && destroyOnNoUse && !persist)
 			FlxG.bitmap.remove(this);
 	}

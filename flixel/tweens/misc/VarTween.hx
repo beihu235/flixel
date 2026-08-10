@@ -1,6 +1,10 @@
 package flixel.tweens.misc;
 
 import flixel.tweens.FlxTween;
+import flixel.tweens.FlxTween.TweenField;
+#if (CODENAME_ENGINE_COMPAT && hscript_improved)
+import hscript.IHScriptCustomBehaviour;
+#end
 
 /**
  * Tweens multiple numeric properties of an object simultaneously.
@@ -58,7 +62,11 @@ class VarTween extends FlxTween
 
 			if (active)
 				for (info in _propertyInfos)
-					Reflect.setProperty(info.object, info.field, info.startValue + info.range * scale);
+					#if CODENAME_ENGINE_COMPAT
+					info.setField(info.startValue + info.range * scale);
+					#else
+					setTweenProperty(info.object, info.field, info.startValue + info.range * scale);
+					#end
 		}
 	}
 
@@ -72,13 +80,17 @@ class VarTween extends FlxTween
 
 		for (fieldPath in fieldPaths)
 		{
-			var target = _object;
-			var path = fieldPath.split(".");
+			var target:Dynamic = _object;
+			#if CODENAME_ENGINE_COMPAT
+			var path = FlxTween.parseFieldString(fieldPath);
+			#else
+			var path:Array<TweenField> = fieldPath.split(".");
+			#end
 			var field = path.pop();
 			for (component in path)
 			{
-				target = Reflect.getProperty(target, component);
-				if (!Reflect.isObject(target))
+				target = getTweenProperty(target, component);
+				if (!Reflect.isObject(target) && !(target is Array))
 					throw 'The object does not have the property "$component" in "$fieldPath"';
 			}
 
@@ -95,16 +107,65 @@ class VarTween extends FlxTween
 	{
 		for (info in _propertyInfos)
 		{
-			if (Reflect.getProperty(info.object, info.field) == null)
+			var value:Dynamic = #if CODENAME_ENGINE_COMPAT info.getField() #else getTweenProperty(info.object, info.field) #end;
+			if (value == null)
 				throw 'The object does not have the property "${info.field}"';
 
-			var value:Dynamic = Reflect.getProperty(info.object, info.field);
 			if (Math.isNaN(value))
 				throw 'The property "${info.field}" is not numeric.';
 
 			info.startValue = value;
 			info.range = info.range - value;
 		}
+	}
+
+	static inline function getTweenProperty(object:Dynamic, field:TweenField):Dynamic
+	{
+		#if CODENAME_ENGINE_COMPAT
+		if (Type.typeof(field) == TInt)
+		{
+			if (object is Array)
+			{
+				final index:Int = cast field;
+				final array:Array<Dynamic> = cast object;
+				return array[index];
+			}
+			return null;
+		}
+		final stringField:String = cast field;
+		#else
+		final stringField:String = field;
+		#end
+		#if (CODENAME_ENGINE_COMPAT && hscript_improved)
+		if (object is IHScriptCustomBehaviour)
+			return (cast object:IHScriptCustomBehaviour).hget(stringField);
+		#end
+		return Reflect.getProperty(object, stringField);
+	}
+
+	static inline function setTweenProperty(object:Dynamic, field:TweenField, value:Dynamic):Dynamic
+	{
+		#if CODENAME_ENGINE_COMPAT
+		if (Type.typeof(field) == TInt)
+		{
+			if (object is Array)
+			{
+				final index:Int = cast field;
+				final array:Array<Dynamic> = cast object;
+				array[index] = value;
+			}
+			return value;
+		}
+		final stringField:String = cast field;
+		#else
+		final stringField:String = field;
+		#end
+		#if (CODENAME_ENGINE_COMPAT && hscript_improved)
+		if (object is IHScriptCustomBehaviour)
+			return (cast object:IHScriptCustomBehaviour).hset(stringField, value);
+		#end
+		Reflect.setProperty(object, stringField, value);
+		return value;
 	}
 
 	override public function destroy():Void
@@ -115,7 +176,7 @@ class VarTween extends FlxTween
 		_propertyInfos = null;
 	}
 
-	override function isTweenOf(object:Dynamic, ?field:String):Bool
+	override function isTweenOf(object:Dynamic, ?field:TweenField):Bool
 	{
 		if (object == _object && field == null)
 			return true;
@@ -130,10 +191,59 @@ class VarTween extends FlxTween
 	}
 }
 
+#if CODENAME_ENGINE_COMPAT
+@:structInit
+class VarTweenProperty
+{
+	public var object:Dynamic;
+	public var field:TweenField;
+	public var startValue:Float;
+	public var range:Float;
+
+	public function getField():Dynamic
+	{
+		if (Type.typeof(field) == TInt)
+		{
+			final index:Int = cast field;
+			final array:Array<Dynamic> = cast object;
+			return array[index];
+		}
+
+		final stringField:String = cast field;
+		#if hscript_improved
+		if (object is IHScriptCustomBehaviour)
+			return (cast object:IHScriptCustomBehaviour).hget(stringField);
+		#end
+		return Reflect.getProperty(object, stringField);
+	}
+
+	public function setField(value:Dynamic):Void
+	{
+		if (Type.typeof(field) == TInt)
+		{
+			final index:Int = cast field;
+			final array:Array<Dynamic> = cast object;
+			array[index] = value;
+			return;
+		}
+
+		final stringField:String = cast field;
+		#if hscript_improved
+		if (object is IHScriptCustomBehaviour)
+		{
+			(cast object:IHScriptCustomBehaviour).hset(stringField, value);
+			return;
+		}
+		#end
+		Reflect.setProperty(object, stringField, value);
+	}
+}
+#else
 private typedef VarTweenProperty =
 {
 	object:Dynamic,
-	field:String,
+	field:TweenField,
 	startValue:Float,
 	range:Float
 }
+#end

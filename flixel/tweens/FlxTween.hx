@@ -26,6 +26,12 @@ import flixel.math.FlxPoint;
 import flixel.util.typeLimit.OneOfTwo;
 #end
 
+#if CODENAME_ENGINE_COMPAT
+typedef TweenField = OneOfTwo<String, Int>;
+#else
+typedef TweenField = String;
+#end
+
 /** @since 4.5.0 **/
 enum abstract FlxTweenType(Int) from Int to Int
 {
@@ -901,7 +907,7 @@ class FlxTween implements IFlxDestroyable
 	 * 
 	 * @since 4.9.0
 	 */
-	function isTweenOf(Object:Dynamic, ?Field:String):Bool
+	function isTweenOf(Object:Dynamic, ?Field:TweenField):Bool
 	{
 		return false;
 	}
@@ -1546,18 +1552,45 @@ class FlxTweenManager extends FlxBasic
 			var propertyInfos = new Array<TweenProperty>();
 			for (fieldPath in fieldPaths)
 			{
-				var target = object;
-				final path = fieldPath.split(".");
+				var target:Dynamic = object;
+				#if CODENAME_ENGINE_COMPAT
+				final path = FlxTween.parseFieldString(fieldPath);
+				#else
+				final path:Array<TweenField> = fieldPath.split(".");
+				#end
 				final field = path.pop();
 				for (component in path)
 				{
-					target = Reflect.getProperty(target, component);
-					if (!Reflect.isObject(target))
+					#if CODENAME_ENGINE_COMPAT
+					if (Type.typeof(component) == TInt)
+					{
+						if (target is Array)
+						{
+							final index:Int = cast component;
+							final array:Array<Dynamic> = cast target;
+							target = array[index];
+						}
+						else
+							target = null;
+					}
+					else
+					#end
+						target = Reflect.getProperty(target, cast component);
+
+					if (!Reflect.isObject(target) && !(target is Array))
 						break;
 				}
-				
+
+				#if CODENAME_ENGINE_COMPAT
+				if (Type.typeof(field) == TInt)
+				{
+					if (target is Array)
+						propertyInfos.push({object: target, field: field});
+				}
+				else
+				#end
 				if (Reflect.isObject(target))
-					propertyInfos.push({ object:target, field:field });
+					propertyInfos.push({object: target, field: field});
 			}
 			
 			var i = _tweens.length;
@@ -1624,5 +1657,5 @@ class FlxTweenManager extends FlxBasic
 private typedef TweenProperty =
 {
 	object:Dynamic,
-	field:String
+	field:TweenField
 }

@@ -2,6 +2,7 @@ package flixel.tweens.misc;
 
 import flixel.FlxSprite;
 import flixel.tweens.FlxTween;
+import flixel.tweens.FlxTween.TweenField;
 import flixel.util.FlxColor;
 
 /**
@@ -60,7 +61,7 @@ class ColorTween extends FlxTween
 		}
 	}
 	
-	override function isTweenOf(object:Dynamic, ?field:String):Bool
+	override function isTweenOf(object:Dynamic, ?field:TweenField):Bool
 	{
 		return sprite == object && (field == null || field == "color");
 	}

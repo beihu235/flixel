@@ -183,7 +183,9 @@ class FlxKeyManager<Key:Int, KeyList:FlxBaseKeyList> implements IFlxInputManager
 			return checkStatusUnsafe(KeyCode, Status);
 		}
 		
-		#if debug
+		#if (debug && CODENAME_ENGINE_COMPAT)
+		FlxG.log.warn('Invalid key code: $KeyCode.');
+		#elseif debug
 		throw 'Invalid key code: $KeyCode.';
 		#end
 		return false;

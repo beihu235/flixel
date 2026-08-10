@@ -37,7 +37,8 @@ class FlxFramesCollection implements IFlxDestroyable
 	/**
 	 * Hash of frames, by name, for this frame collection.
 	 */
-	var framesByName(default, null):Map<String, FlxFrame>;
+	/** Name lookup table exposed by the Codename Flixel surface. */
+	public var framesByName(default, null):Map<String, FlxFrame>;
 
 	/**
 	 * Graphic object this frames belongs to.
@@ -329,6 +330,14 @@ class FlxFramesCollection implements IFlxDestroyable
 	{
 		forEachByPrefix(prefix, (frame)->{ frame.offset.add(offsetX, offsetY); }, warnIfEmpty);
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Sets the duration of every named frame whose name starts with `prefix`. */
+	public function setFramesDurationByPrefix(prefix:String, duration:Float):Void
+	{
+		forEachByPrefix(prefix, (frame)->{ frame.duration = duration; }, false);
+	}
+	#end
 
 	/**
 	 * Sets the target frame's offset to the specified values. This mainly exists because certain

@@ -16,7 +16,7 @@ import flixel.util.FlxColor;
 import flixel.util.FlxDestroyUtil;
 
 #if FLX_DEBUG @:bitmap("assets/images/debugger/windowHandle.png") #end
-private class GraphicWindowHandle extends BitmapData {}
+class GraphicWindowHandle extends BitmapData {}
 
 /**
  * A generic, Flash-based window class, created for use in FlxDebugger.

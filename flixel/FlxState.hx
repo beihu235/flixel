@@ -45,6 +45,9 @@ class FlxState extends FlxContainer
 	public var destroySubStates:Bool = true;
 
 	#if CODENAME_ENGINE_COMPAT
+	/** Tracks whether this state's create lifecycle has run. */
+	public var created:Bool = false;
+
 	/** Tracks whether Codename's post-create lifecycle hook has run. */
 	public var postCreated:Bool = false;
 	#end
@@ -110,7 +113,12 @@ class FlxState extends FlxContainer
 	 * We do NOT recommend initializing any flixel objects or utilizing flixel features in
 	 * the constructor, unless you want some crazy unpredictable things to happen!
 	 */
-	public function create():Void {}
+	public function create():Void
+	{
+		#if CODENAME_ENGINE_COMPAT
+		created = true;
+		#end
+	}
 
 	#if CODENAME_ENGINE_COMPAT
 	/** Called after create() once the state has been fully attached to Flixel. */
@@ -251,13 +259,25 @@ class FlxState extends FlxContainer
 	 * This method is called after the game loses focus.
 	 * Can be useful for third party libraries, such as tweening engines.
 	 */
-	public function onFocusLost():Void {}
+	public function onFocusLost():Void
+	{
+		#if CODENAME_ENGINE_COMPAT
+		if (subState != null)
+			subState.onFocusLost();
+		#end
+	}
 
 	/**
 	 * This method is called after the game receives focus.
 	 * Can be useful for third party libraries, such as tweening engines.
 	 */
-	public function onFocus():Void {}
+	public function onFocus():Void
+	{
+		#if CODENAME_ENGINE_COMPAT
+		if (subState != null)
+			subState.onFocus();
+		#end
+	}
 
 	/**
 	 * This function is called whenever the window size has been changed.
@@ -265,7 +285,13 @@ class FlxState extends FlxContainer
 	 * @param   Width    The new window width
 	 * @param   Height   The new window Height
 	 */
-	public function onResize(Width:Int, Height:Int):Void {}
+	public function onResize(Width:Int, Height:Int):Void
+	{
+		#if CODENAME_ENGINE_COMPAT
+		if (subState != null)
+			subState.onResize(Width, Height);
+		#end
+	}
 
 	@:allow(flixel.FlxGame)
 	function tryHandleInput(elapsed:Float):Void

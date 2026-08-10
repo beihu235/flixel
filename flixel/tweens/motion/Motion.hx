@@ -2,6 +2,7 @@ package flixel.tweens.motion;
 
 import flixel.FlxObject;
 import flixel.tweens.FlxTween;
+import flixel.tweens.FlxTween.TweenField;
 
 /**
  * Base class for motion Tweens.
@@ -55,7 +56,7 @@ class Motion extends FlxTween
 		}
 	}
 	
-	override function isTweenOf(object:Dynamic, ?field:String):Bool
+	override function isTweenOf(object:Dynamic, ?field:TweenField):Bool
 	{
 		return _object == object
 			&& (field == null || field == "x" || field == "y");

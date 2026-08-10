@@ -48,8 +48,11 @@ class FlxAnimation extends FlxBaseAnimation
 	/** True when playback is positioned on its terminal frame. */
 	public var isAtEnd(get, never):Bool;
 
-	/** Source prefix retained for Codename's animation editor and scripts. */
-	public var prefix:String;
+	/** Whether this animation was assembled through `addByIndices`. */
+	public var usesIndices:Bool = false;
+
+	/** Legacy misspelling kept for existing Codename scripts. */
+	@:noCompletion public var usesIndicies(get, set):Bool;
 	#end
 
 	/**
@@ -105,6 +108,9 @@ class FlxAnimation extends FlxBaseAnimation
 	#if CODENAME_ENGINE_COMPAT
 	/** Delay before the end-of-final-frame callback is dispatched. */
 	var _frameFinishedEndTimer:Float = 0;
+
+	/** Tick on which play() started, so the first frame keeps its full duration. */
+	var _playTicks:Null<Int>;
 	#end
 
 	public var onFinish:FlxTypedSignal<Void->Void> = new FlxTypedSignal();
@@ -169,6 +175,7 @@ class FlxAnimation extends FlxBaseAnimation
 		_frameTimer = 0;
 		#if CODENAME_ENGINE_COMPAT
 		_frameFinishedEndTimer = 0;
+		_playTicks = FlxG.game != null ? FlxG.game.ticks : null;
 		#end
 		finished = frameDuration == 0;
 
@@ -256,6 +263,12 @@ class FlxAnimation extends FlxBaseAnimation
 	override public function update(elapsed:Float):Void
 	{
 		#if CODENAME_ENGINE_COMPAT
+		if (_playTicks != null && FlxG.game != null && _playTicks == FlxG.game.ticks)
+		{
+			_playTicks = null;
+			return;
+		}
+
 		if (!paused && _frameFinishedEndTimer > 0)
 		{
 			_frameFinishedEndTimer -= elapsed * timeScale;
@@ -370,6 +383,16 @@ class FlxAnimation extends FlxBaseAnimation
 	inline function get_isAtEnd():Bool
 	{
 		return curFrame == (reversed ? 0 : numFrames - 1);
+	}
+
+	inline function get_usesIndicies():Bool
+	{
+		return usesIndices;
+	}
+
+	inline function set_usesIndicies(value:Bool):Bool
+	{
+		return usesIndices = value;
 	}
 	#end
 

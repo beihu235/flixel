@@ -258,7 +258,7 @@ class FlxSprite extends FlxObject
 
 	@:noCompletion public var __drawOverrided:Bool = false;
 
-	function set_onDraw(drawFunc:FlxSprite->Void):FlxSprite->Void
+	public function set_onDraw(drawFunc:FlxSprite->Void):FlxSprite->Void
 	{
 		__drawOverrided = drawFunc != null;
 		return onDraw = drawFunc;
@@ -324,7 +324,7 @@ class FlxSprite extends FlxObject
 	public var shaderEnabled:Bool = true;
 
 	/** Optional Codename draw target. Kept dynamic to avoid replacing NF's renderer. */
-	public var layer:Dynamic;
+	public var layer:FlxLayer;
 	#end
 
 	/**
@@ -392,6 +392,12 @@ class FlxSprite extends FlxObject
 	@:noCompletion
 	var _scaledOrigin:FlxPoint;
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Cached scaled `frameOffset`, used when calculating render bounds. */
+	@:noCompletion
+	var _scaledFrameOffset:FlxPoint;
+	#end
+
 	/**
 	 * These vars are being used for rendering in some of `FlxSprite` subclasses (`FlxTileblock`, `FlxBar`,
 	 * and `FlxBitmapText`) and for checks if the sprite is in camera's view.
@@ -450,6 +456,9 @@ class FlxSprite extends FlxObject
 		_matrix = new FlxMatrix();
 		colorTransform = new ColorTransform();
 		_scaledOrigin = new FlxPoint();
+		#if CODENAME_ENGINE_COMPAT
+		_scaledFrameOffset = new FlxPoint();
+		#end
 	}
 
 	/**
@@ -479,6 +488,9 @@ class FlxSprite extends FlxObject
 		graphicScale = FlxDestroyUtil.put(graphicScale);
 		_halfSize = FlxDestroyUtil.put(_halfSize);
 		_scaledOrigin = FlxDestroyUtil.put(_scaledOrigin);
+		#if CODENAME_ENGINE_COMPAT
+		_scaledFrameOffset = FlxDestroyUtil.put(_scaledFrameOffset);
+		#end
 
 		framePixels = FlxDestroyUtil.dispose(framePixels);
 
@@ -1501,12 +1513,16 @@ class FlxSprite extends FlxObject
 		if (pixelPerfectPosition)
 			newRect.floor();
 		_scaledOrigin.set(origin.x * scale.x * graphicScale.x, origin.y * scale.y * graphicScale.y);
+		#if CODENAME_ENGINE_COMPAT
+		_scaledFrameOffset.set(frameOffset.x * scale.x * graphicScale.x, frameOffset.y * scale.y * graphicScale.y);
+		#end
 		newRect.x += -Std.int(camera.scroll.x * scrollFactor.x) - offset.x + origin.x - _scaledOrigin.x;
 		newRect.y += -Std.int(camera.scroll.y * scrollFactor.y) - offset.y + origin.y - _scaledOrigin.y;
 		if (isPixelPerfectRender(camera))
 			newRect.floor();
 		newRect.setSize(frameWidth * Math.abs(scale.x * graphicScale.x), frameHeight * Math.abs(scale.y * graphicScale.y));
-		return newRect.getRotatedBounds(angle, _scaledOrigin, newRect);
+		return newRect.getRotatedBounds(angle, _scaledOrigin, newRect,
+			#if CODENAME_ENGINE_COMPAT _scaledFrameOffset #else null #end);
 	}
 	
 	/**

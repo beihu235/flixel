@@ -197,6 +197,9 @@ class FlxAnalog extends FlxSpriteGroup
 		super.destroy();
 
 		_zone = FlxDestroyUtil.put(_zone);
+		#if CODENAME_ENGINE_COMPAT
+		_point = FlxDestroyUtil.put(_point);
+		#end
 
 		_analogs.remove(this);
 		onUp = null;

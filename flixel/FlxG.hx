@@ -167,6 +167,18 @@ class FlxG
 	 */
 	@:allow(flixel.FlxGame.updateElapsed)
 	public static var elapsed(default, null):Float = 0;
+
+	#if CODENAME_ENGINE_COMPAT
+	/**
+	 * Represents the elapsed time before applying `timeScale`.
+	 *
+	 * This is kept as a real static field because Codename scripts access it
+	 * through reflection.
+	 */
+	@:allow(flixel.FlxGame.updateElapsed)
+	public static var rawElapsed(default, null):Float = 0;
+	#end
+
 	@:allow(flixel.FlxGame.updateElapsed)
 	@:allow(flixel.FlxGame.updateDrawElapsed)
 	public static var drawElapsed(default, null):Float = 0;
@@ -770,6 +782,9 @@ class FlxG
 		timeScale = 1.0;
 		animationTimeScale = 1.0;
 		elapsed = 0;
+		#if CODENAME_ENGINE_COMPAT
+		rawElapsed = 0;
+		#end
 		drawElapsed = 0;
 		maxElapsed = 0.1;
 		worldBounds.set(-10, -10, width + 20, height + 20);

@@ -38,6 +38,11 @@ class CameraFrontEnd
 	/** @since 4.2.0 */
 	public var cameraRemoved(default, null):FlxTypedSignal<FlxCamera->Void> = new FlxTypedSignal<FlxCamera->Void>();
 
+	#if CODENAME_ENGINE_COMPAT
+	/** Dispatched immediately before a camera's scale or dimensions are recalculated. */
+	public var preCameraResized(default, null):FlxTypedSignal<FlxCamera->Void> = new FlxTypedSignal<FlxCamera->Void>();
+	#end
+
 	/** @since 4.2.0 */
 	public var cameraResized(default, null):FlxTypedSignal<FlxCamera->Void> = new FlxTypedSignal<FlxCamera->Void>();
 
@@ -124,31 +129,107 @@ class CameraFrontEnd
 	public function remove(Camera:FlxCamera, Destroy:Bool = true):Void
 	{
 		var index:Int = list.indexOf(Camera);
-		if (Camera != null && index != -1)
-		{
-			FlxG.game.removeChild(Camera.flashSprite);
-			list.splice(index, 1);
-			defaults.remove(Camera);
-		}
-		else
+		if (Camera == null || index == -1)
 		{
 			FlxG.log.warn("FlxG.cameras.remove(): The camera you attempted to remove is not a part of the game.");
 			return;
 		}
 
+		#if CODENAME_ENGINE_COMPAT
+		removeAt(index, Destroy);
+		#else
+		FlxG.game.removeChild(Camera.flashSprite);
+		list.splice(index, 1);
+		defaults.remove(Camera);
 		if (FlxG.renderTile)
-		{
 			for (i in 0...list.length)
-			{
 				list[i].ID = i;
+		if (Destroy)
+			Camera.destroy();
+		cameraRemoved.dispatch(Camera);
+		#end
+	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Replaces and reorders the active camera list while preserving its array identity. */
+	public function setOrder(order:Array<FlxCamera>, ?newDefaults:Null<Array<FlxCamera>>, destroy = false):Void
+	{
+		if (order == null)
+			order = [];
+
+		final oldList = list.copy();
+		for (camera in oldList)
+		{
+			if (camera == null)
+				continue;
+			if (camera.flashSprite.parent == FlxG.game)
+				FlxG.game.removeChild(camera.flashSprite);
+			if (!order.contains(camera))
+			{
+				if (destroy)
+					camera.destroy();
+				cameraRemoved.dispatch(camera);
 			}
 		}
 
-		if (Destroy)
-			Camera.destroy();
+		list.splice(0, list.length);
+		defaults.splice(0, defaults.length);
+		for (i => camera in order)
+		{
+			if (camera == null)
+			{
+				FlxG.log.warn('FlxG.cameras.setOrder(): Camera at index $i is null.');
+				continue;
+			}
+			FlxG.game.addChildAt(camera.flashSprite, FlxG.game.getChildIndex(FlxG.game._inputContainer));
+			for (sprite in FlxG.spriteBelowMouse)
+				if (sprite != null)
+					FlxG.game.addChildAt(camera.flashSprite, FlxG.game.getChildIndex(sprite));
+			camera.ID = list.length;
+			list.push(camera);
+			if (!oldList.contains(camera))
+				cameraAdded.dispatch(camera);
+		}
 
-		cameraRemoved.dispatch(Camera);
+		if (newDefaults == null && list.length > 0)
+			newDefaults = [list[0]];
+		if (newDefaults != null)
+			for (camera in newDefaults)
+				if (camera != null && list.contains(camera) && !defaults.contains(camera))
+					defaults.push(camera);
 	}
+
+	/** Removes a camera by list index. */
+	public function removeAt(index:Int, destroy = true):Void
+	{
+		if (index < 0 || index >= list.length)
+		{
+			FlxG.log.warn("FlxG.cameras.removeAt(): The camera you attempted to remove is not a part of the game.");
+			return;
+		}
+
+		final camera = list[index];
+		if (camera.flashSprite.parent == FlxG.game)
+			FlxG.game.removeChild(camera.flashSprite);
+		list.splice(index, 1);
+		defaults.remove(camera);
+		for (i in 0...list.length)
+			list[i].ID = i;
+		if (destroy)
+			camera.destroy();
+		cameraRemoved.dispatch(camera);
+	}
+
+	public inline function indexOf(camera:FlxCamera):Int
+	{
+		return list.indexOf(camera);
+	}
+
+	public inline function contains(camera:FlxCamera):Bool
+	{
+		return list.contains(camera);
+	}
+	#end
 	
 	/**
 	 * If set to true, the camera is listed as a default draw target, meaning `FlxBasics`

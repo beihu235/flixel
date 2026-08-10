@@ -1595,6 +1595,30 @@ class FlxBasePoint implements IFlxPooled
 	}
 
 	#if CODENAME_ENGINE_COMPAT
+	/**
+	 * Runtime-visible compatibility mirror for the API that CNE exposed on
+	 * FlxBasePoint. Flixel 5.9 implements this API on the FlxPoint abstract,
+	 * whose inline fields cannot be discovered through reflection.
+	 */
+	public static final EPSILON:Float = FlxPoint.EPSILON;
+	public static final EPSILON_SQUARED:Float = FlxPoint.EPSILON_SQUARED;
+
+	public var dx(get, never):Float;
+	public var dy(get, never):Float;
+	public var length(get, set):Float;
+	public var lengthSquared(get, never):Float;
+	public var degrees(get, set):Float;
+	public var radians(get, set):Float;
+	public var rx(get, never):Float;
+	public var ry(get, never):Float;
+	public var lx(get, never):Float;
+	public var ly(get, never):Float;
+
+	inline function asFlxPoint():FlxPoint
+	{
+		return cast this;
+	}
+
 	public function add(x:Float = 0, y:Float = 0):FlxBasePoint return set(this.x + x, this.y + y);
 
 	public function addPoint(point:FlxBasePoint):FlxBasePoint
@@ -1603,6 +1627,181 @@ class FlxBasePoint implements IFlxPooled
 		point.putWeak();
 		return this;
 	}
+
+	public function subtract(x:Float = 0, y:Float = 0):FlxPoint return asFlxPoint().subtract(x, y);
+
+	public function subtractPoint(point:FlxPoint):FlxPoint return asFlxPoint().subtractPoint(point);
+
+	public function scale(x:Float, ?y:Float):FlxPoint return asFlxPoint().scale(x, y);
+
+	public function scalePoint(point:FlxPoint):FlxPoint return asFlxPoint().scalePoint(point);
+
+	public function scaleNew(k:Float):FlxPoint return asFlxPoint().scaleNew(k);
+
+	public function addNew(p:FlxPoint):FlxPoint return asFlxPoint().addNew(p);
+
+	public function subtractNew(p:FlxPoint):FlxPoint return asFlxPoint().subtractNew(p);
+
+	public function copyFrom(p:FlxPoint):FlxPoint return asFlxPoint().copyFrom(p);
+
+	public function copyFromFlash(p:Point):FlxPoint return asFlxPoint().copyFromFlash(p);
+
+	public function copyTo(?p:FlxPoint):FlxPoint return asFlxPoint().copyTo(p);
+
+	public function copyToFlash(?p:Point):Point return asFlxPoint().copyToFlash(p);
+
+	public function addToFlash(p:Point):Point return asFlxPoint().addToFlash(p);
+
+	public function subtractFromFlash(p:Point):Point return asFlxPoint().subtractFromFlash(p);
+
+	public function floor():FlxPoint return asFlxPoint().floor();
+
+	public function ceil():FlxPoint return asFlxPoint().ceil();
+
+	public function round():FlxPoint return asFlxPoint().round();
+
+	public function inCoords(x:Float, y:Float, width:Float, height:Float):Bool return asFlxPoint().inCoords(x, y, width, height);
+
+	public function inRect(rect:FlxRect):Bool return asFlxPoint().inRect(rect);
+
+	@:deprecated("rotate is deprecated, use pivotDegrees")
+	public function rotate(pivot:FlxPoint, degrees:Float):FlxPoint return asFlxPoint().pivotDegrees(pivot, degrees);
+
+	public function pivotRadians(pivot:FlxPoint, radians:Float):FlxPoint return asFlxPoint().pivotRadians(pivot, radians);
+
+	public function pivotDegrees(pivot:FlxPoint, degrees:Float):FlxPoint return asFlxPoint().pivotDegrees(pivot, degrees);
+
+	public function distanceTo(point:FlxPoint):Float return asFlxPoint().distanceTo(point);
+
+	public function radiansTo(point:FlxPoint):Float return asFlxPoint().radiansTo(point);
+
+	public function radiansFrom(point:FlxPoint):Float return asFlxPoint().radiansFrom(point);
+
+	public function degreesTo(point:FlxPoint):Float return asFlxPoint().degreesTo(point);
+
+	public function degreesFrom(point:FlxPoint):Float return asFlxPoint().degreesFrom(point);
+
+	@:deprecated("angleBetween is deprecated, use degreesTo instead")
+	public function angleBetween(point:FlxPoint):Float return asFlxPoint().angleBetween(point);
+
+	public function transform(matrix:Matrix):FlxPoint return asFlxPoint().transform(matrix);
+
+	public function dot(p:FlxPoint):Float return asFlxPoint().dot(p);
+
+	public function dotProduct(p:FlxPoint):Float return asFlxPoint().dotProduct(p);
+
+	public function dotProdWithNormalizing(p:FlxPoint):Float return asFlxPoint().dotProdWithNormalizing(p);
+
+	public function isPerpendicular(p:FlxPoint):Bool return asFlxPoint().isPerpendicular(p);
+
+	public function crossProductLength(p:FlxPoint):Float return asFlxPoint().crossProductLength(p);
+
+	public function isParallel(p:FlxPoint):Bool return asFlxPoint().isParallel(p);
+
+	public function isZero():Bool return asFlxPoint().isZero();
+
+	public function zero():FlxPoint return asFlxPoint().zero();
+
+	public function normalize():FlxPoint return asFlxPoint().normalize();
+
+	public function isNormalized():Bool return asFlxPoint().isNormalized();
+
+	public function rotateByRadians(rads:Float):FlxPoint return asFlxPoint().rotateByRadians(rads);
+
+	public function rotateByDegrees(degs:Float):FlxPoint return asFlxPoint().rotateByDegrees(degs);
+
+	public function rotateWithTrig(sin:Float, cos:Float):FlxPoint return asFlxPoint().rotateWithTrig(sin, cos);
+
+	public function setPolarRadians(length:Float, radians:Float):FlxPoint return asFlxPoint().setPolarRadians(length, radians);
+
+	public function setPolarDegrees(length:Float, degrees:Float):FlxPoint return asFlxPoint().setPolarDegrees(length, degrees);
+
+	public function rightNormal(?p:FlxPoint):FlxPoint return asFlxPoint().rightNormal(p);
+
+	public function leftNormal(?p:FlxPoint):FlxPoint return asFlxPoint().leftNormal(p);
+
+	public function negate():FlxPoint return asFlxPoint().negate();
+
+	public function negateNew():FlxPoint return asFlxPoint().negateNew();
+
+	public function projectTo(p:FlxPoint, ?proj:FlxPoint):FlxPoint return asFlxPoint().projectTo(p, proj);
+
+	public function projectToNormalized(p:FlxPoint, ?proj:FlxPoint):FlxPoint return asFlxPoint().projectToNormalized(p, proj);
+
+	public function perpProduct(p:FlxPoint):Float return asFlxPoint().perpProduct(p);
+
+	public function ratio(a:FlxPoint, b:FlxPoint, p:FlxPoint):Float return asFlxPoint().ratio(a, b, p);
+
+	public function findIntersection(a:FlxPoint, b:FlxPoint, p:FlxPoint, ?intersection:FlxPoint):FlxPoint
+	{
+		return asFlxPoint().findIntersection(a, b, p, intersection);
+	}
+
+	public function findIntersectionInBounds(a:FlxPoint, b:FlxPoint, p:FlxPoint, ?intersection:FlxPoint):FlxPoint
+	{
+		return asFlxPoint().findIntersectionInBounds(a, b, p, intersection);
+	}
+
+	public function truncate(max:Float):FlxPoint return asFlxPoint().truncate(max);
+
+	public function radiansBetween(p:FlxPoint):Float return asFlxPoint().radiansBetween(p);
+
+	public function degreesBetween(p:FlxPoint):Float return asFlxPoint().degreesBetween(p);
+
+	public function sign(a:FlxPoint, b:FlxPoint):Int return asFlxPoint().sign(a, b);
+
+	public function dist(p:FlxPoint):Float return asFlxPoint().dist(p);
+
+	public function distSquared(p:FlxPoint):Float return asFlxPoint().distSquared(p);
+
+	public function bounce(normal:FlxPoint, bounceCoeff:Float = 1):FlxPoint return asFlxPoint().bounce(normal, bounceCoeff);
+
+	public function bounceWithFriction(normal:FlxPoint, bounceCoeff:Float = 1, friction:Float = 0):FlxPoint
+	{
+		return asFlxPoint().bounceWithFriction(normal, bounceCoeff, friction);
+	}
+
+	public function isValid():Bool return asFlxPoint().isValid();
+
+	public function clone(?p:FlxPoint):FlxPoint return asFlxPoint().clone(p);
+
+	function get_dx():Float return asFlxPoint().dx;
+
+	function get_dy():Float return asFlxPoint().dy;
+
+	function get_length():Float return asFlxPoint().length;
+
+	function set_length(value:Float):Float
+	{
+		asFlxPoint().length = value;
+		return value;
+	}
+
+	function get_lengthSquared():Float return asFlxPoint().lengthSquared;
+
+	function get_degrees():Float return asFlxPoint().degrees;
+
+	function set_degrees(value:Float):Float
+	{
+		asFlxPoint().degrees = value;
+		return value;
+	}
+
+	function get_radians():Float return asFlxPoint().radians;
+
+	function set_radians(value:Float):Float
+	{
+		asFlxPoint().radians = value;
+		return value;
+	}
+
+	function get_rx():Float return asFlxPoint().rx;
+
+	function get_ry():Float return asFlxPoint().ry;
+
+	function get_lx():Float return asFlxPoint().lx;
+
+	function get_ly():Float return asFlxPoint().ly;
 	#end
 }
 

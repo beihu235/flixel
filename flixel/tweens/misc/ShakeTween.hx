@@ -1,6 +1,7 @@
 package flixel.tweens.misc;
 
 import flixel.math.FlxPoint;
+import flixel.tweens.FlxTween.TweenField;
 import flixel.util.FlxAxes;
 
 /**
@@ -68,7 +69,7 @@ class ShakeTween extends FlxTween
 			sprite.offset.y = initialOffset.y + FlxG.random.float(-intensity * sprite.height, intensity * sprite.height);
 	}
 
-	override function isTweenOf(Object:Dynamic, ?Field:String):Bool
+	override function isTweenOf(Object:Dynamic, ?Field:TweenField):Bool
 	{
 		return sprite == Object && (Field == null || Field == "shake");
 	}

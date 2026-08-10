@@ -10,6 +10,9 @@ import flixel.sound.FlxSoundGroup;
 import flixel.system.FlxAssets;
 import flixel.system.ui.FlxSoundTray;
 import flixel.text.FlxInputText;
+#if FLX_SAVE
+import flixel.util.FlxSave;
+#end
 import flixel.util.FlxSignal;
 import openfl.media.Sound;
 
@@ -104,6 +107,22 @@ class SoundFrontEnd
 	 * Set this to a number between 0 and 1 to change the global volume.
 	 */
 	public var volume(default, set):Float = 1;
+
+	#if FLX_SAVE
+	/**
+	 * The save used for Flixel's global sound preferences.
+	 *
+	 * This static compatibility entry point is used by Codename's sound tray.
+	 */
+	public static var save(get, null):FlxSave;
+
+	static function get_save():FlxSave
+	{
+		if (save == null || !save.isBound)
+			save = FlxG.save;
+		return save;
+	}
+	#end
 
 	/**
 	 * Set up and play a looping background soundtrack.

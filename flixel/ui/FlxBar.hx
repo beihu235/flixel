@@ -29,8 +29,8 @@ import flixel.util.FlxStringUtil;
 class FlxBar extends FlxSprite
 {
 	#if CODENAME_ENGINE_COMPAT
-	/** Compatibility switch retained for Codename's continuously clipped bars. */
-	public var unbounded:Bool = false;
+	/** Draw the fill at sub-division precision instead of snapping it to blocks. */
+	public var continuous:Bool = false;
 	#end
 	/**
 	 * If false, the bar is tracking its parent
@@ -57,6 +57,11 @@ class FlxBar extends FlxSprite
 	 * The percentage of how full the bar is (a value between 0 and 100)
 	 */
 	public var percent(get, set):Float;
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Integer form of `percent`, retained for scripts that need the old rounded value. */
+	public var floorPercent(get, never):Int;
+	#end
 
 	/**
 	 * The current value - must always be between min and max
@@ -766,16 +771,27 @@ class FlxBar extends FlxSprite
 		var fraction:Float = (value - min) / range;
 		var percent:Float = fraction * _maxPercent;
 		var maxScale:Float = (_fillHorizontal) ? barWidth : barHeight;
+		#if CODENAME_ENGINE_COMPAT
+		var interval:Float;
+		if (continuous)
+			interval = fraction * maxScale;
+		else
+		{
+			var scaleInterval:Float = maxScale / numDivisions;
+			interval = Math.round(Std.int(fraction * maxScale / scaleInterval) * scaleInterval);
+		}
+		#else
 		var scaleInterval:Float = maxScale / numDivisions;
 		var interval:Float = Math.round(Std.int(fraction * maxScale / scaleInterval) * scaleInterval);
+		#end
 
 		if (_fillHorizontal)
 		{
-			_filledBarRect.width = Std.int(interval);
+			_filledBarRect.width = floorBarValue(interval);
 		}
 		else
 		{
-			_filledBarRect.height = Std.int(interval);
+			_filledBarRect.height = floorBarValue(interval);
 		}
 
 		if (percent > 0)
@@ -794,20 +810,20 @@ class FlxBar extends FlxSprite
 					_filledBarPoint.x = barWidth - _filledBarRect.width;
 
 				case HORIZONTAL_INSIDE_OUT:
-					_filledBarRect.x = Std.int((barWidth / 2) - (_filledBarRect.width / 2));
-					_filledBarPoint.x = Std.int((barWidth / 2) - (_filledBarRect.width / 2));
+					_filledBarRect.x = floorBarValue((barWidth / 2) - (_filledBarRect.width / 2));
+					_filledBarPoint.x = floorBarValue((barWidth / 2) - (_filledBarRect.width / 2));
 
 				case HORIZONTAL_OUTSIDE_IN:
-					_filledBarRect.width = Std.int(maxScale - interval);
-					_filledBarPoint.x = Std.int((barWidth - _filledBarRect.width) / 2);
+					_filledBarRect.width = floorBarValue(maxScale - interval);
+					_filledBarPoint.x = floorBarValue((barWidth - _filledBarRect.width) / 2);
 
 				case VERTICAL_INSIDE_OUT:
-					_filledBarRect.y = Std.int((barHeight / 2) - (_filledBarRect.height / 2));
-					_filledBarPoint.y = Std.int((barHeight / 2) - (_filledBarRect.height / 2));
+					_filledBarRect.y = floorBarValue((barHeight / 2) - (_filledBarRect.height / 2));
+					_filledBarPoint.y = floorBarValue((barHeight / 2) - (_filledBarRect.height / 2));
 
 				case VERTICAL_OUTSIDE_IN:
-					_filledBarRect.height = Std.int(maxScale - interval);
-					_filledBarPoint.y = Std.int((barHeight - _filledBarRect.height) / 2);
+					_filledBarRect.height = floorBarValue(maxScale - interval);
+					_filledBarPoint.y = floorBarValue((barHeight - _filledBarRect.height) / 2);
 			}
 
 			if (FlxG.renderBlit)
@@ -818,11 +834,16 @@ class FlxBar extends FlxSprite
 			{
 				if (frontFrames != null)
 				{
+					#if CODENAME_ENGINE_COMPAT
+					// Continuous bars must retain their fractional crop. Rounding here would
+					// undo the precision preserved by updateFilledBar().
+					_filledFlxRect.copyFromFlash(_filledBarRect);
+					_frontFrame = frontFrames.frame.clipTo(_filledFlxRect, _frontFrame);
+					#else
 					_filledFlxRect.copyFromFlash(_filledBarRect).round();
 					if (Std.int(percent) > 0)
-					{
 						_frontFrame = frontFrames.frame.clipTo(_filledFlxRect, _frontFrame);
-					}
+					#end
 				}
 			}
 		}
@@ -894,7 +915,8 @@ class FlxBar extends FlxSprite
 					_matrix.ty = Math.floor(_matrix.ty);
 				}
 				
-				camera.drawPixels(_frontFrame, _matrix, colorTransform, blend, antialiasing, shader);
+				camera.drawPixels(_frontFrame, _matrix, colorTransform, blend, antialiasing,
+					#if CODENAME_ENGINE_COMPAT shaderEnabled ? shader : null #else shader #end);
 			}
 		}
 	}
@@ -930,8 +952,21 @@ class FlxBar extends FlxSprite
 			return _maxPercent;
 		}
 
+		#if CODENAME_ENGINE_COMPAT
+		return ((value - min) / range) * _maxPercent;
+		#else
+		return Math.floor(((value - min) / range) * _maxPercent);
+		#end
+	}
+
+	#if CODENAME_ENGINE_COMPAT
+	function get_floorPercent():Int
+	{
+		if (value > max)
+			return _maxPercent;
 		return Math.floor(((value - min) / range) * _maxPercent);
 	}
+	#end
 
 	function set_percent(newPct:Float):Float
 	{
@@ -1034,6 +1069,30 @@ class FlxBar extends FlxSprite
 		}
 		return value;
 	}
+
+	inline function floorBarValue(value:Float):Float
+	{
+		#if CODENAME_ENGINE_COMPAT
+		return continuous ? value : Std.int(value);
+		#else
+		return Std.int(value);
+		#end
+	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Deprecated pre-rename alias retained by old Codename mods. */
+	@:noCompletion public var unbounded(get, set):Bool;
+
+	inline function get_unbounded():Bool
+	{
+		return continuous;
+	}
+
+	inline function set_unbounded(value:Bool):Bool
+	{
+		return continuous = value;
+	}
+	#end
 }
 
 enum FlxBarFillDirection

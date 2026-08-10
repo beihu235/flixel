@@ -34,13 +34,13 @@ using flixel.util.FlxColorTransformUtil;
  * BitmapData loaded via @:bitmap is loaded asynchronously, this allows us to apply frame
  * padding to the bitmap once it's loaded rather
  */
-private interface IEmbeddedBitmapData
+interface IEmbeddedBitmapData
 {
 	var onLoad:()->Void;
 }
 
 @:keep @:bitmap("assets/images/tile/autotiles.png")
-private class RawGraphicAuto extends BitmapData {}
+class RawGraphicAuto extends BitmapData {}
 class GraphicAuto extends RawGraphicAuto implements IEmbeddedBitmapData
 {
 	static inline var WIDTH = 128;
@@ -57,7 +57,7 @@ class GraphicAuto extends RawGraphicAuto implements IEmbeddedBitmapData
 }
 
 @:keep @:bitmap("assets/images/tile/autotiles_alt.png")
-private class RawGraphicAutoAlt extends BitmapData {}
+class RawGraphicAutoAlt extends BitmapData {}
 class GraphicAutoAlt extends RawGraphicAutoAlt implements IEmbeddedBitmapData
 {
 	static inline var WIDTH = 128;
@@ -74,7 +74,7 @@ class GraphicAutoAlt extends RawGraphicAutoAlt implements IEmbeddedBitmapData
 }
 
 @:keep @:bitmap("assets/images/tile/autotiles_full.png")
-private class RawGraphicAutoFull extends BitmapData {}
+class RawGraphicAutoFull extends BitmapData {}
 class GraphicAutoFull extends RawGraphicAutoFull implements IEmbeddedBitmapData
 {
 	static inline var WIDTH = 256;
@@ -636,6 +636,11 @@ class FlxTypedTilemap<Tile:FlxTile> extends FlxBaseTilemap<Tile>
 	 */
 	override public function isOnScreen(?camera:FlxCamera):Bool
 	{
+		#if CODENAME_ENGINE_COMPAT
+		if (forceIsOnScreen)
+			return true;
+		#end
+
 		if (camera == null)
 			camera = FlxG.camera;
 

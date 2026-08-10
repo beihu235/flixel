@@ -45,6 +45,13 @@ abstract FlxColor(Int) from Int from UInt to Int to UInt
 	public var green(get, set):Int;
 	public var alpha(get, set):Int;
 
+	#if CODENAME_ENGINE_COMPAT
+	public var redFast(get, set):Int;
+	public var greenFast(get, set):Int;
+	public var blueFast(get, set):Int;
+	public var alphaFast(get, set):Int;
+	#end
+
 	public var redFloat(get, set):Float;
 	public var blueFloat(get, set):Float;
 	public var greenFloat(get, set):Float;
@@ -107,6 +114,22 @@ abstract FlxColor(Int) from Int from UInt to Int to UInt
 		var color = new FlxColor();
 		return color.setRGB(Red, Green, Blue, Alpha);
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Packs bounded byte channels directly, avoiding four accessor writes. */
+	public static inline function fromRGBFast(Red:Int, Green:Int, Blue:Int, Alpha:Int = 255):FlxColor
+	{
+		var color = new FlxColor();
+		return color.setRGBFast(Red, Green, Blue, Alpha);
+	}
+
+	/** Packs channels directly without masking them first. */
+	public static inline function fromRGBUnsafe(Red:Int, Green:Int, Blue:Int, Alpha:Int = 255):FlxColor
+	{
+		var color = new FlxColor();
+		return color.setRGBUnsafe(Red, Green, Blue, Alpha);
+	}
+	#end
 
 	/**
 	 * Generate a color from float RGB values (0 to 1)
@@ -280,6 +303,15 @@ abstract FlxColor(Int) from Int from UInt to Int to UInt
 	{
 		return FlxColor.fromRGBFloat(lhs.redFloat * rhs.redFloat, lhs.greenFloat * rhs.greenFloat, lhs.blueFloat * rhs.blueFloat);
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	/** Divide the RGB channels of two colors. */
+	@:op(A / B)
+	public static inline function divide(lhs:FlxColor, rhs:FlxColor):FlxColor
+	{
+		return FlxColor.fromRGBFloat(lhs.redFloat / rhs.redFloat, lhs.greenFloat / rhs.greenFloat, lhs.blueFloat / rhs.blueFloat);
+	}
+	#end
 
 	/**
 	 * Add the RGB channels of two FlxColors
@@ -465,6 +497,20 @@ abstract FlxColor(Int) from Int from UInt to Int to UInt
 		return this;
 	}
 
+	#if CODENAME_ENGINE_COMPAT
+	public inline function setRGBFast(Red:Int, Green:Int, Blue:Int, Alpha:Int = 255):FlxColor
+	{
+		this = (Red & 0xFF) << 16 | (Green & 0xFF) << 8 | (Blue & 0xFF) | (Alpha & 0xFF) << 24;
+		return this;
+	}
+
+	public inline function setRGBUnsafe(Red:Int, Green:Int, Blue:Int, Alpha:Int = 255):FlxColor
+	{
+		this = Red << 16 | Green << 8 | Blue | Alpha << 24;
+		return this;
+	}
+	#end
+
 	/**
 	 * Set RGB values as floats (0 to 1)
 	 *
@@ -604,6 +650,13 @@ abstract FlxColor(Int) from Int from UInt to Int to UInt
 		return (getThis() >> 24) & 0xff;
 	}
 
+	#if CODENAME_ENGINE_COMPAT
+	inline function get_redFast():Int return (getThis() >> 16) & 0xFF;
+	inline function get_greenFast():Int return (getThis() >> 8) & 0xFF;
+	inline function get_blueFast():Int return getThis() & 0xFF;
+	inline function get_alphaFast():Int return (getThis() >> 24) & 0xFF;
+	#end
+
 	inline function get_redFloat():Float
 	{
 		return red / 255;
@@ -655,6 +708,36 @@ abstract FlxColor(Int) from Int from UInt to Int to UInt
 		this |= boundChannel(Value) << 24;
 		return Value;
 	}
+
+	#if CODENAME_ENGINE_COMPAT
+	inline function set_redFast(Value:Int):Int
+	{
+		validate();
+		this = (getThis() & 0xFF00FFFF) | ((Value & 0xFF) << 16);
+		return Value;
+	}
+
+	inline function set_greenFast(Value:Int):Int
+	{
+		validate();
+		this = (getThis() & 0xFFFF00FF) | ((Value & 0xFF) << 8);
+		return Value;
+	}
+
+	inline function set_blueFast(Value:Int):Int
+	{
+		validate();
+		this = (getThis() & 0xFFFFFF00) | (Value & 0xFF);
+		return Value;
+	}
+
+	inline function set_alphaFast(Value:Int):Int
+	{
+		validate();
+		this = (getThis() & 0x00FFFFFF) | ((Value & 0xFF) << 24);
+		return Value;
+	}
+	#end
 
 	inline function set_redFloat(Value:Float):Float
 	{

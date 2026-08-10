@@ -1,7 +1,11 @@
 package flixel.system.debug;
 
+import flixel.FlxG;
 import openfl.display.BitmapData;
 import openfl.display.Sprite;
+#if (CODENAME_ENGINE_COMPAT && FLX_SAVE)
+import flixel.util.FlxSave;
+#end
 #if FLX_DEBUG
 import openfl.events.MouseEvent;
 import openfl.geom.Point;
@@ -10,7 +14,6 @@ import openfl.text.TextField;
 import openfl.text.TextFieldAutoSize;
 import openfl.text.TextFormat;
 import openfl.display.DisplayObject;
-import flixel.FlxG;
 import flixel.system.debug.console.Console;
 import flixel.system.debug.log.Log;
 import flixel.system.debug.stats.Stats;
@@ -27,10 +30,10 @@ using flixel.util.FlxArrayUtil;
 #end
 
 #if FLX_DEBUG @:bitmap("assets/images/debugger/flixel.png") #end
-private class GraphicFlixel extends BitmapData {}
+class GraphicFlixel extends BitmapData {}
 
 #if FLX_DEBUG @:bitmap("assets/images/debugger/buttons/drawDebug.png") #end
-private class GraphicDrawDebug extends BitmapData {}
+class GraphicDrawDebug extends BitmapData {}
 
 #if FLX_DEBUG @:bitmap("assets/images/debugger/buttons/log.png") #end
 @:noCompletion class GraphicLog extends BitmapData {}
@@ -64,6 +67,18 @@ private class GraphicDrawDebug extends BitmapData {}
  */
 class FlxDebugger extends openfl.display.Sprite
 {
+	#if (CODENAME_ENGINE_COMPAT && FLX_SAVE)
+	/** Save object used by the debugger and exposed by the Codename Flixel API. */
+	public static var save(get, null):FlxSave;
+
+	static function get_save():FlxSave
+	{
+		if (save == null || !save.isBound)
+			save = FlxG.save;
+		return save;
+	}
+	#end
+
 	#if FLX_DEBUG
 	/**
 	 * Internal, used to space out windows from the edges.
@@ -326,14 +341,27 @@ class FlxDebugger extends openfl.display.Sprite
 
 	public function onResize(Width:Float, Height:Float):Void
 	{
+		#if (CODENAME_ENGINE_COMPAT && openfl_dpi_aware)
+		Width /= FlxG.stage.window.scale;
+		Height /= FlxG.stage.window.scale;
+		#end
+
 		_screen.x = Width;
 		_screen.y = Height;
 
 		updateBounds();
+		#if CODENAME_ENGINE_COMPAT
+		_topBar.width = Width;
+		#else
 		_topBar.width = FlxG.stage.stageWidth;
+		#end
 		resetButtonLayout();
 		resetLayout();
+		#if (CODENAME_ENGINE_COMPAT && openfl_dpi_aware)
+		scaleX = scaleY = FlxG.stage.window.scale;
+		#else
 		scaleX = scaleY = 1;
+		#end
 		x = -FlxG.scaleMode.offset.x;
 		y = -FlxG.scaleMode.offset.y;
 	}
@@ -373,11 +401,16 @@ class FlxDebugger extends openfl.display.Sprite
 	function resetButtonLayout():Void
 	{
 		hAlignButtons(_buttons[FlxHorizontalAlign.LEFT], 10, true, 10);
+		#if CODENAME_ENGINE_COMPAT
+		var layoutWidth = _screen.x;
+		#else
+		var layoutWidth = FlxG.stage.stageWidth;
+		#end
 
-		var offset = FlxG.stage.stageWidth * 0.5 - hAlignButtons(_buttons[FlxHorizontalAlign.CENTER], 10, false) * 0.5;
+		var offset = layoutWidth * 0.5 - hAlignButtons(_buttons[FlxHorizontalAlign.CENTER], 10, false) * 0.5;
 		hAlignButtons(_buttons[FlxHorizontalAlign.CENTER], 10, true, offset);
 
-		var offset = FlxG.stage.stageWidth - hAlignButtons(_buttons[FlxHorizontalAlign.RIGHT], 10, false);
+		var offset = layoutWidth - hAlignButtons(_buttons[FlxHorizontalAlign.RIGHT], 10, false);
 		hAlignButtons(_buttons[FlxHorizontalAlign.RIGHT], 10, true, offset);
 	}
 
